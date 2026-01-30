@@ -16,6 +16,10 @@ const classifiedSchema = new mongoose.Schema({
     date_posted:{
         type: Date,
         default: Date.now
+    },
+    location:{
+        type:String,
+        required: [true,"No location listed"]
     }
 })
 

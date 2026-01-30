@@ -19,6 +19,10 @@ const eventSchema = new mongoose.Schema({
     },
     interest:{
         type: Float32Array
+    },
+    price:{
+        //Not required 0 represents a free event
+        type:Number
     }
 })
 

@@ -1,7 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 
-const DB_URL = "";
+const DB_URL = "mongodb+srv://nguyensteven578_db_user:KipuXKRBlZistryc@clustercomp3123.qnimjux.mongodb.net/?appName=ClusterComp3123";
 const PORT = 8046;
 
 const app = express();
