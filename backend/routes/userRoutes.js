@@ -8,8 +8,11 @@ userRoutes.post('/user/signup', async (req, res) => {
     try {
         const user = new userModel({
             username: content.username,
+            first_name:content.first_name,
+            last_name: content.last_name,
             email: content.email,
             password: content.password,
+            user_type: content.user_type,
             created_at: content.created_at,
             updated_at: content.updated_at
         });
@@ -54,5 +57,41 @@ userRoutes.post('/user/login',query('password').notEmpty(),async(req,res)=>{
         });
     }
 });
+
+userRoutes.get('/user/users', async (req, res) => {
+    try {
+        const user = await userModel.find();
+        res.status(200).send(user);
+    } catch (error) {
+        res.status(500).send({
+            message: error.message || "Some error occurred while retrieving users."
+        });
+    }
+});
+
+userRoutes.delete('/user/:id', async (req, res) => {
+    try {
+        const user = await userModel.findByIdAndDelete(req.params.id);
+        if (!user) {
+            return res.status(404).send({
+                message: "User not found with id " + req.params.id
+            });
+        }
+        res.status(204).send({
+            message: "User deleted successfully!",
+            user: user
+        });
+    } catch (error) {
+        if (error.kind === 'ObjectId') {
+            return res.status(404).send({
+                message: "User not found with id " + req.params.id
+            });
+        }
+        res.status(500).send({
+            message: "Could not delete user with id " + req.params.id
+        });
+    }
+});
+
 
 module.exports = userRoutes;

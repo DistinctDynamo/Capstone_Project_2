@@ -2,6 +2,7 @@ NPM Modules Installed
 mongoose
 bcrypt
 mongodb
+express-validator
 
 
 

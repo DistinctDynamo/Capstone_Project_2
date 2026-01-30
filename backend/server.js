@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const userRoutes = require('../routes/userRoutes.js')
 
 const DB_URL = "mongodb+srv://nguyensteven578_db_user:KipuXKRBlZistryc@clustercomp3123.qnimjux.mongodb.net/?appName=ClusterComp3123";
 const PORT = 8046;
@@ -17,8 +18,10 @@ app.use(function(req, res, next) {
 });
 
 app.get('/', (req, res) => {
-    res.send("<h1>Capstone 2 Soccer Connect App</h1>");
+    res.send("<h1>Capstone 2: Soccer Connect App</h1>");
 });
+
+app.use('/api', userRoutes);
 
 mongoose.connect(DB_URL).then(() => {
     console.log("Successfully connected to the database mongoDB Atlas Server");    

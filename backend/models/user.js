@@ -48,13 +48,10 @@ const userSchema = new mongoose.Schema({
     assists:{
         type: Number
     },
-    passes:{
-        type: Number
-    },
     team_role:{
         type: String
     }
-    //Add a field for image upload
+    //To Do: Add a field for image upload
 })
 
 userSchema.pre('save', async function(next) {

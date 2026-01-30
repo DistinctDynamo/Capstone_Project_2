@@ -12,7 +12,7 @@ const teamSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     }
-    //add images field for team logo
+    //Do To: add image field for team logo
 })
 
 teamSchema.pre('save', function(next) {
