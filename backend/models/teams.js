@@ -1,0 +1,22 @@
+const mongoose = require('mongoose');
+
+const teamSchema = new mongoose.Schema({
+    members:{
+        type: Float64Array
+    },
+    team_name:{
+        type: String,
+        required:[true,"No team name given"]
+    },
+    date_of_creation:{
+        type: Date,
+        default: Date.now
+    }
+    //add images field for team logo
+})
+
+teamSchema.pre('save', function(next) {
+    this.date_of_creation = Date.now();
+});
+
+module.exports = mongoose.model('Team', teamSchema);
