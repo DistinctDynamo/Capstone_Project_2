@@ -9,11 +9,13 @@ const userSchema = new mongoose.Schema({
     },
     first_name:{
         type: String,
-        required:[true, "No first name"]
+        required:[true, "No first name"],
+        trim: true
     },
     last_name:{
         type: String,
-        required:[true, "No last name"]
+        required:[true, "No last name"],
+        trim: true
     },
     email: {
         type: String,
@@ -50,6 +52,9 @@ const userSchema = new mongoose.Schema({
     },
     team_role:{
         type: String
+    },
+    on_team:{
+        type:Boolean
     }
     //To Do: Add a field for image upload
 })

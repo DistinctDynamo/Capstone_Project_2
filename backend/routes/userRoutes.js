@@ -69,6 +69,38 @@ userRoutes.get('/user/users', async (req, res) => {
     }
 });
 
+userRoutes.put('/user/:id', async (req, res) => {
+    const content = req.body;
+    try {
+        if (!content.updated_at) {
+            content.updated_at = Date.now();
+        }
+        const user = await userModel.findByIdAndUpdate(
+            req.params.id,
+            content,
+            { new: true, runValidators: true }
+        );
+        if (!user) {
+            return res.status(404).send({
+                message: "User not found with id " + req.params.id
+            });
+        }
+        res.status(200).send({
+            message: "User updated successfully",
+            employee: employee
+        });
+    } catch (error) {
+        if (error.kind === 'ObjectId') {
+            return res.status(404).send({
+                message: "User not found with id " + req.params.id
+            });
+        }
+        res.status(500).send({
+            message: "Error updating user with id " + req.params.id
+        });
+    }
+});
+
 userRoutes.delete('/user/:id', async (req, res) => {
     try {
         const user = await userModel.findByIdAndDelete(req.params.id);

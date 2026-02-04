@@ -7,13 +7,18 @@ const classifiedSchema = new mongoose.Schema({
     },
     name:{
         type: String,
-        required:[true,"No name listed"]
+        required:[true,"No name listed"],
+        trim: true
     },
     description:{
         type: String,
         required: [true,"No description given"]
     },
     date_posted:{
+        type: Date,
+        default: Date.now
+    },
+    date_updated:{
         type: Date,
         default: Date.now
     },

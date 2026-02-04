@@ -6,9 +6,14 @@ const teamSchema = new mongoose.Schema({
     },
     team_name:{
         type: String,
-        required:[true,"No team name given"]
+        required:[true,"No team name given"],
+        trim: true
     },
     date_of_creation:{
+        type: Date,
+        default: Date.now
+    },
+    date_updated:{
         type: Date,
         default: Date.now
     }

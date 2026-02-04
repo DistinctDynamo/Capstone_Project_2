@@ -3,14 +3,15 @@ const mongoose = require('mongoose');
 const eventSchema = new mongoose.Schema({
     title:{
         type:String,
-        required:[true,"Title not given"]
+        required:[true,"Title not given"],
+        trim: true
     },
     date_posted:{
         type:Date,
         default: Date.now
     },
     description:{
-        type: String,
+        type:String,
         required: [true,"No description given"]
     },
     location:{
@@ -21,7 +22,7 @@ const eventSchema = new mongoose.Schema({
         type: Float32Array
     },
     price:{
-        //Not required 0 represents a free event
+        //Not required, 0 represents a free event
         type:Number
     }
 })
