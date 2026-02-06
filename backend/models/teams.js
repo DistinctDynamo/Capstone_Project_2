@@ -1,9 +1,7 @@
 const mongoose = require('mongoose');
 
 const teamSchema = new mongoose.Schema({
-    members:{
-        type: Float64Array
-    },
+    members: [{ type: Schema.Types.ObjectId, ref: 'Member' }],
     team_name:{
         type: String,
         required:[true,"No team name given"],
