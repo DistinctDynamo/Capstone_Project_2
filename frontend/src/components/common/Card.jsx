@@ -12,7 +12,7 @@ const Card = ({
   children,
   variant = 'default',
   className = '',
-  as: Component = 'div',
+  as: Component = 'div', // eslint-disable-line no-unused-vars
   noPadding = false,
   ...props
 }) => {
@@ -42,7 +42,7 @@ const CardHeader = ({ children, className = '', border = true }) => (
   </div>
 );
 
-const CardTitle = ({ children, className = '', as: Tag = 'h3' }) => (
+const CardTitle = ({ children, className = '', as: Tag = 'h3' }) => ( // eslint-disable-line no-unused-vars
   <Tag
     className={clsx(
       'text-lg font-semibold text-white tracking-tight',

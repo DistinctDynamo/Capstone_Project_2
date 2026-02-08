@@ -126,8 +126,8 @@ const PlayerCard = ({
     }
   };
 
-  // Get initials for avatar fallback
-  const getInitials = (name) => {
+  // Get initials for avatar fallback (available for future use)
+  const _getInitials = (name) => {
     if (!name) return '?';
     const parts = name.split(' ');
     if (parts.length >= 2) {

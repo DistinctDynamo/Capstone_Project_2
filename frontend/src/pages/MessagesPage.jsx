@@ -315,7 +315,9 @@ const MessagesPage = () => {
     const sendHeartbeat = async () => {
       try {
         await authAPI.heartbeat();
-      } catch (error) {}
+      } catch {
+        // Silently ignore heartbeat errors
+      }
     };
 
     const conversationPollInterval = setInterval(fetchConversationsSilent, POLL_INTERVAL * 2);

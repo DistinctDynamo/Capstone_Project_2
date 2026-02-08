@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { authAPI } from '../api/auth';
 
-const useAuthStore = create((set, get) => ({
+const useAuthStore = create((set, _get) => ({ // eslint-disable-line no-unused-vars
   user: null,
   isAuthenticated: false,
   isLoading: true,
@@ -22,7 +22,7 @@ const useAuthStore = create((set, get) => ({
         isAuthenticated: true,
         isLoading: false,
       });
-    } catch (error) {
+    } catch {
       localStorage.removeItem('token');
       set({
         user: null,

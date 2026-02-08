@@ -21,7 +21,7 @@ import { Loading } from '../components/common';
 import { teamsAPI, eventsAPI } from '../api';
 
 // Stat Cell Component
-const StatCell = ({ icon: Icon, value, label, color, trend }) => (
+const StatCell = ({ icon: Icon, value, label, color, trend }) => ( // eslint-disable-line no-unused-vars
   <div className="bg-[#141c28] border border-[#2a3a4d] rounded-xl p-3 sm:p-5">
     <div className="flex items-center justify-between mb-2 sm:mb-3">
       <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}20` }}>
@@ -39,7 +39,7 @@ const StatCell = ({ icon: Icon, value, label, color, trend }) => (
 );
 
 // Quick Action Button
-const QuickAction = ({ to, icon: Icon, label, code, color }) => (
+const QuickAction = ({ to, icon: Icon, label, code, color }) => ( // eslint-disable-line no-unused-vars
   <Link
     to={to}
     className="group flex items-center gap-3 p-3 sm:p-4 bg-[#0d1219] border border-[#1c2430] rounded-xl hover:border-[#2a3a4d] transition-all"
@@ -124,7 +124,7 @@ const EventRow = ({ event }) => {
 const DashboardPage = () => {
   const { user, isAuthenticated } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
-  const [myTeam, setMyTeam] = useState(null);
+  const [_myTeam, setMyTeam] = useState(null); // eslint-disable-line no-unused-vars
   const [upcomingEvents, setUpcomingEvents] = useState([]);
 
   const [dashboardData, setDashboardData] = useState({

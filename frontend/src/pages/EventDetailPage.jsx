@@ -50,7 +50,7 @@ const CapacityMeter = ({ current, max }) => {
 };
 
 // Info Card Component
-const InfoCard = ({ icon: Icon, label, value, color = '#4ade80' }) => (
+const InfoCard = ({ icon: Icon, label, value, color = '#4ade80' }) => ( // eslint-disable-line no-unused-vars
   <div className="bg-[#141c28] border border-[#2a3a4d] rounded-lg p-4">
     <div className="flex items-center gap-3">
       <div

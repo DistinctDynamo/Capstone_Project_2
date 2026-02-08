@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import Button from './Button';
 
 const EmptyState = ({
-  icon: Icon = FiInbox,
+  icon: Icon = FiInbox, // eslint-disable-line no-unused-vars
   title = 'No data found',
   description = 'There is nothing to display at the moment.',
   action,

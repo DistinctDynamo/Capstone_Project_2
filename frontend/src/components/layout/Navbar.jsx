@@ -52,8 +52,11 @@ const Navbar = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Close menus when route changes - intentional setState in effect
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsOpen(false);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setUserMenuOpen(false);
   }, [location]);
 

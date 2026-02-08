@@ -42,7 +42,7 @@ const AdminUsersPage = () => {
       const response = await adminAPI.getUsers(params);
       setUsers(response.data.data.users || []);
       setPagination(response.data.data.pagination || pagination);
-    } catch (error) {
+    } catch {
       toast.error('Failed to load users');
     } finally {
       setIsLoading(false);
@@ -63,7 +63,7 @@ const AdminUsersPage = () => {
       setUsers((prev) => prev.map((u) => u._id === user._id ? { ...u, is_active: updatedUser.is_active } : u));
       toast.success(updatedUser.is_active ? 'User unbanned' : 'User banned');
       setOpenMenuId(null);
-    } catch (error) {
+    } catch {
       toast.error('Failed to update user');
     } finally {
       setActionLoading(false);
@@ -80,7 +80,7 @@ const AdminUsersPage = () => {
       setRoleModalOpen(false);
       setSelectedUser(null);
       setNewRole('');
-    } catch (error) {
+    } catch {
       toast.error('Failed to update role');
     } finally {
       setActionLoading(false);
@@ -423,7 +423,7 @@ const StatusBadge = ({ isActive }) => (
   </span>
 );
 
-const InfoBlock = ({ icon: Icon, label, value, capitalize }) => (
+const InfoBlock = ({ icon: Icon, label, value, capitalize }) => ( // eslint-disable-line no-unused-vars
   <div className="flex items-start gap-3 p-3 bg-[#141c28] rounded-lg">
     <div className="w-8 h-8 bg-[#1c2430] rounded flex items-center justify-center flex-shrink-0">
       <Icon className="w-4 h-4 text-[#3b82f6]" />

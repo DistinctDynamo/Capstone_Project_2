@@ -130,7 +130,7 @@ const RegisterForm = () => {
   const onSubmit = async (data) => {
     setIsSubmitting(true);
     try {
-      const { confirmPassword, agreeToTerms, ageConsent, ...userData } = data;
+      const { confirmPassword: _confirmPassword, agreeToTerms: _agreeToTerms, ageConsent: _ageConsent, ...userData } = data;
       await registerUser(userData);
       toast.success('Welcome to SoccerConnect!');
       navigate('/dashboard');

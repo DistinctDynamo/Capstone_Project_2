@@ -37,7 +37,7 @@ const AdminDashboardPage = () => {
         setPendingEvents(eventsRes.data.data.events || []);
         setPendingTeams(teamsRes.data.data.teams || []);
         setPendingClassifieds(classifiedsRes.data.data.classifieds || []);
-      } catch (error) {
+      } catch {
         toast.error('Failed to load dashboard');
       } finally {
         setIsLoading(false);
@@ -343,7 +343,7 @@ const QueueRow = ({ item, type, isEven }) => {
   );
 };
 
-const ActionButton = ({ to, icon: Icon, label, color }) => {
+const ActionButton = ({ to, icon: Icon, label, color }) => { // eslint-disable-line no-unused-vars
   const colors = {
     emerald: 'border-[#22c55e]/30 hover:border-[#22c55e] hover:bg-[#22c55e]/5 text-[#22c55e]',
     blue: 'border-[#3b82f6]/30 hover:border-[#3b82f6] hover:bg-[#3b82f6]/5 text-[#3b82f6]',

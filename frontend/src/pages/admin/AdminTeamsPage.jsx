@@ -42,7 +42,7 @@ const AdminTeamsPage = () => {
       const response = await adminAPI.getTeams(params);
       setTeams(response.data.data.teams || []);
       setPagination(response.data.data.pagination || pagination);
-    } catch (error) {
+    } catch {
       toast.error('Failed to load teams');
     } finally {
       setIsLoading(false);
@@ -79,7 +79,7 @@ const AdminTeamsPage = () => {
       setTeams((prev) => prev.map((t) => t._id === selectedTeam._id ? { ...t, ...editForm } : t));
       toast.success('Team updated');
       setEditModalOpen(false);
-    } catch (error) {
+    } catch {
       toast.error('Failed to update team');
     } finally {
       setActionLoading(false);
@@ -93,7 +93,7 @@ const AdminTeamsPage = () => {
       setTeams((prev) => prev.filter((t) => t._id !== selectedTeam._id));
       toast.success('Team deleted');
       setDeleteModalOpen(false);
-    } catch (error) {
+    } catch {
       toast.error('Failed to delete team');
     } finally {
       setActionLoading(false);
@@ -105,7 +105,7 @@ const AdminTeamsPage = () => {
       await adminAPI.approveTeam(team._id);
       setTeams((prev) => prev.map((t) => t._id === team._id ? { ...t, approval_status: 'approved' } : t));
       toast.success(`"${team.team_name}" approved`);
-    } catch (error) {
+    } catch {
       toast.error('Failed to approve');
     }
     setOpenMenuId(null);
@@ -434,7 +434,7 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-const InfoBlock = ({ label, value, icon: Icon, capitalize }) => (
+const InfoBlock = ({ label, value, icon: Icon, capitalize }) => ( // eslint-disable-line no-unused-vars
   <div className="flex items-start gap-3 p-3 bg-[#141c28] rounded-lg">
     <div className="w-8 h-8 bg-[#1c2430] rounded flex items-center justify-center flex-shrink-0">
       <Icon className="w-4 h-4 text-[#4ade80]" />

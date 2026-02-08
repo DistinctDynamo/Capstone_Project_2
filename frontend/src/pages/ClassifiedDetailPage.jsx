@@ -21,7 +21,7 @@ import useAuthStore from '../store/authStore';
 import { classifiedsAPI, messagesAPI } from '../api';
 
 // Info Row Component
-const InfoRow = ({ icon: Icon, label, value }) => (
+const InfoRow = ({ icon: Icon, label, value }) => ( // eslint-disable-line no-unused-vars
   <div className="flex items-center gap-3 py-3 border-b border-[#1c2430] last:border-0">
     <div className="w-8 h-8 rounded-lg bg-[#141c28] flex items-center justify-center">
       <Icon className="w-4 h-4 text-[#64748b]" />
