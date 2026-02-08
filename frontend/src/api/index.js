@@ -7,3 +7,4 @@ export { fieldsAPI, bookingsAPI } from './fields';
 export { messagesAPI } from './messages';
 export { usersAPI } from './users';
 export { notificationsAPI } from './notifications';
+export { adminAPI } from './admin';

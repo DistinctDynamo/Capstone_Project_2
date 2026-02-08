@@ -14,6 +14,7 @@ import {
   FiShoppingBag,
   FiChevronDown,
   FiHome,
+  FiShield,
 } from 'react-icons/fi';
 import { GiSoccerBall } from 'react-icons/gi';
 import useAuthStore from '../../store/authStore';
@@ -75,6 +76,10 @@ const Navbar = () => {
     { to: '/messages', label: 'Messages', icon: FiMessageSquare },
     { to: '/account', label: 'Account Settings', icon: FiSettings },
   ];
+
+  // Admin link for admin users
+  const adminLink = { to: '/admin', label: 'Admin Panel', icon: FiShield };
+  const isAdmin = user?.user_type === 'admin';
 
   return (
     <nav
@@ -178,6 +183,15 @@ const Navbar = () => {
                         {link.label}
                       </Link>
                     ))}
+                    {isAdmin && (
+                      <Link
+                        to={adminLink.to}
+                        className="flex items-center gap-3 px-4 py-2.5 text-primary-400 hover:text-primary-300 hover:bg-dark-700 transition-colors"
+                      >
+                        <adminLink.icon className="w-4 h-4" />
+                        {adminLink.label}
+                      </Link>
+                    )}
                     <div className="border-t border-dark-700 mt-2 pt-2">
                       <button
                         onClick={handleLogout}
@@ -293,6 +307,23 @@ const Navbar = () => {
                     {link.label}
                   </NavLink>
                 ))}
+                {isAdmin && (
+                  <NavLink
+                    to={adminLink.to}
+                    className={({ isActive }) => `
+                      flex items-center gap-3 px-4 py-3 rounded-xl font-medium
+                      transition-colors
+                      ${
+                        isActive
+                          ? 'text-primary-400 bg-primary-500/10'
+                          : 'text-primary-400 hover:text-primary-300 hover:bg-dark-800'
+                      }
+                    `}
+                  >
+                    <adminLink.icon className="w-5 h-5" />
+                    {adminLink.label}
+                  </NavLink>
+                )}
                 <button
                   onClick={handleLogout}
                   className="flex items-center gap-3 w-full px-4 py-3 rounded-xl font-medium text-red-400 hover:bg-dark-800 transition-colors"
