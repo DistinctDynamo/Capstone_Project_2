@@ -278,7 +278,11 @@ const TeamDetailPage = () => {
             <h2 className="text-xl font-semibold text-white mb-6">Roster</h2>
             <div className="grid sm:grid-cols-2 gap-4">
               {team.roster.map((player) => (
-                <div key={player.id} className="flex items-center gap-4 p-4 rounded-xl bg-dark-800/50">
+                <Link
+                  key={player.id}
+                  to={`/players/${player.id}`}
+                  className="flex items-center gap-4 p-4 rounded-xl bg-dark-800/50 hover:bg-dark-700/50 transition-colors group"
+                >
                   <div className="relative">
                     <Avatar src={player.avatar} name={player.name} size="md" />
                     <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-dark-700 text-white text-xs font-bold flex items-center justify-center">
@@ -286,7 +290,7 @@ const TeamDetailPage = () => {
                     </span>
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-white">{player.name}</p>
+                    <p className="font-medium text-white group-hover:text-primary-400 transition-colors">{player.name}</p>
                     <p className="text-sm text-dark-400">{player.position}</p>
                   </div>
                   {player.role !== 'Member' && (
@@ -294,7 +298,7 @@ const TeamDetailPage = () => {
                       {player.role}
                     </Badge>
                   )}
-                </div>
+                </Link>
               ))}
             </div>
           </Card>
@@ -316,7 +320,9 @@ const TeamDetailPage = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-dark-400">Captain</span>
-                <span className="text-white">{team.captain.name}</span>
+                <Link to={`/players/${team.captain.id}`} className="text-white hover:text-primary-400 transition-colors">
+                  {team.captain.name}
+                </Link>
               </div>
             </div>
           </Card>

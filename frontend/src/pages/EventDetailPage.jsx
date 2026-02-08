@@ -312,13 +312,17 @@ const EventDetailPage = () => {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               {event.attendees.map((attendee) => (
-                <div key={attendee.id} className="flex items-center gap-3 p-3 rounded-xl bg-dark-800/50">
+                <Link
+                  key={attendee.id}
+                  to={`/players/${attendee.id}`}
+                  className="flex items-center gap-3 p-3 rounded-xl bg-dark-800/50 hover:bg-dark-700/50 transition-colors group"
+                >
                   <Avatar src={attendee.avatar} name={attendee.name} size="sm" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{attendee.name}</p>
+                    <p className="text-sm font-medium text-white group-hover:text-primary-400 transition-colors truncate">{attendee.name}</p>
                     <p className="text-xs text-dark-400">{attendee.status}</p>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </Card>
@@ -425,13 +429,13 @@ const EventDetailPage = () => {
           {/* Host Card */}
           <Card>
             <h3 className="text-lg font-semibold text-white mb-4">Hosted by</h3>
-            <div className="flex items-center gap-4 mb-4">
+            <Link to={`/players/${event.host.id}`} className="flex items-center gap-4 mb-4 group">
               <Avatar src={event.host.avatar} name={event.host.name} size="lg" />
               <div>
-                <p className="font-medium text-white">{event.host.name}</p>
+                <p className="font-medium text-white group-hover:text-primary-400 transition-colors">{event.host.name}</p>
                 <p className="text-sm text-dark-400">{event.host.gamesHosted} games hosted</p>
               </div>
-            </div>
+            </Link>
             <div className="flex items-center gap-1 mb-4">
               {[1, 2, 3, 4, 5].map((star) => (
                 <svg

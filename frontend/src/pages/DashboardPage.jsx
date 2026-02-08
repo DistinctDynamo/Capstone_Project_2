@@ -93,8 +93,8 @@ const DashboardPage = () => {
   }
 
   const quickActions = [
+    { label: 'My Player Card', icon: FiAward, to: `/players/${user?._id}`, color: 'from-amber-500 to-yellow-600' },
     { label: 'Find Games', icon: FiCalendar, to: '/events', color: 'from-primary-500 to-emerald-600' },
-    { label: 'Create Event', icon: FiPlus, to: '/events/create', color: 'from-blue-500 to-cyan-600' },
     { label: 'Browse Teams', icon: FiUsers, to: '/teams', color: 'from-purple-500 to-pink-600' },
     { label: 'Find Fields', icon: FiMapPin, to: '/fields', color: 'from-accent-500 to-orange-600' },
   ];

@@ -206,6 +206,167 @@ router.put('/:id/stats', protect, mongoIdValidation, async (req, res, next) => {
   }
 });
 
+// @route   GET /api/users/:id/player-stats
+// @desc    Get user's FIFA-style player attributes
+// @access  Public
+router.get('/:id/player-stats', mongoIdValidation, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .select('username first_name last_name avatar position team player_attributes nationality stats')
+      .populate('team', 'team_name logo');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Calculate overall rating based on position
+    const attrs = user.player_attributes;
+    let overall;
+
+    switch (user.position) {
+      case 'goalkeeper':
+        overall = Math.round(
+          attrs.defending * 0.30 +
+          attrs.physical * 0.25 +
+          attrs.pace * 0.15 +
+          attrs.passing * 0.15 +
+          attrs.dribbling * 0.10 +
+          attrs.shooting * 0.05
+        );
+        break;
+      case 'defender':
+        overall = Math.round(
+          attrs.defending * 0.30 +
+          attrs.physical * 0.25 +
+          attrs.pace * 0.15 +
+          attrs.passing * 0.15 +
+          attrs.dribbling * 0.10 +
+          attrs.shooting * 0.05
+        );
+        break;
+      case 'midfielder':
+        overall = Math.round(
+          attrs.passing * 0.25 +
+          attrs.dribbling * 0.20 +
+          attrs.physical * 0.15 +
+          attrs.pace * 0.15 +
+          attrs.defending * 0.15 +
+          attrs.shooting * 0.10
+        );
+        break;
+      case 'forward':
+        overall = Math.round(
+          attrs.shooting * 0.25 +
+          attrs.pace * 0.20 +
+          attrs.dribbling * 0.20 +
+          attrs.passing * 0.15 +
+          attrs.physical * 0.15 +
+          attrs.defending * 0.05
+        );
+        break;
+      default:
+        overall = Math.round(
+          (attrs.pace + attrs.shooting + attrs.passing + attrs.dribbling + attrs.defending + attrs.physical) / 6
+        );
+    }
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          _id: user._id,
+          username: user.username,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          full_name: user.full_name,
+          avatar: user.avatar,
+          position: user.position,
+          team: user.team,
+          nationality: user.nationality,
+          stats: user.stats
+        },
+        player_attributes: user.player_attributes,
+        overall_rating: overall
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// @route   PUT /api/users/me/player-stats
+// @desc    Update current user's FIFA-style player attributes
+// @access  Private
+router.put('/me/player-stats', protect, async (req, res, next) => {
+  try {
+    const { pace, shooting, passing, dribbling, defending, physical, nationality } = req.body;
+
+    const updates = {};
+
+    // Validate and set player attributes (1-99 range)
+    const validateAttribute = (value) => {
+      const num = parseInt(value, 10);
+      if (isNaN(num)) return null;
+      return Math.max(1, Math.min(99, num));
+    };
+
+    if (pace !== undefined) {
+      const val = validateAttribute(pace);
+      if (val !== null) updates['player_attributes.pace'] = val;
+    }
+    if (shooting !== undefined) {
+      const val = validateAttribute(shooting);
+      if (val !== null) updates['player_attributes.shooting'] = val;
+    }
+    if (passing !== undefined) {
+      const val = validateAttribute(passing);
+      if (val !== null) updates['player_attributes.passing'] = val;
+    }
+    if (dribbling !== undefined) {
+      const val = validateAttribute(dribbling);
+      if (val !== null) updates['player_attributes.dribbling'] = val;
+    }
+    if (defending !== undefined) {
+      const val = validateAttribute(defending);
+      if (val !== null) updates['player_attributes.defending'] = val;
+    }
+    if (physical !== undefined) {
+      const val = validateAttribute(physical);
+      if (val !== null) updates['player_attributes.physical'] = val;
+    }
+    if (nationality !== undefined) {
+      updates.nationality = nationality;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid attributes to update'
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      updates,
+      { new: true, runValidators: true }
+    ).select('player_attributes nationality');
+
+    res.json({
+      success: true,
+      message: 'Player attributes updated successfully',
+      data: {
+        player_attributes: user.player_attributes,
+        nationality: user.nationality
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // @route   DELETE /api/users/:id
 // @desc    Deactivate user account
 // @access  Private (owner or admin)

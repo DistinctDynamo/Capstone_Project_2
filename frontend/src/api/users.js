@@ -30,4 +30,15 @@ export const usersAPI = {
     const response = await api.get('/users/search', { params: { q: query, ...filters } });
     return response.data;
   },
+
+  // FIFA-style player stats
+  getPlayerStats: async (id) => {
+    const response = await api.get(`/users/${id}/player-stats`);
+    return response.data;
+  },
+
+  updatePlayerStats: async (attributes) => {
+    const response = await api.put('/users/me/player-stats', attributes);
+    return response.data;
+  },
 };

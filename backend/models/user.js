@@ -107,6 +107,19 @@ const userSchema = new mongoose.Schema({
     assists: { type: Number, default: 0 },
     clean_sheets: { type: Number, default: 0 }
   },
+  // FIFA-style player attributes (1-99 scale)
+  player_attributes: {
+    pace: { type: Number, default: 50, min: 1, max: 99 },
+    shooting: { type: Number, default: 50, min: 1, max: 99 },
+    passing: { type: Number, default: 50, min: 1, max: 99 },
+    dribbling: { type: Number, default: 50, min: 1, max: 99 },
+    defending: { type: Number, default: 50, min: 1, max: 99 },
+    physical: { type: Number, default: 50, min: 1, max: 99 }
+  },
+  nationality: {
+    type: String,
+    default: ''
+  },
   notifications: {
     email: { type: Boolean, default: true },
     push: { type: Boolean, default: true }
