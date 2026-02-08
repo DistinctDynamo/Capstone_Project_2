@@ -14,8 +14,8 @@ router.get('/', optionalAuth, paginationValidation, async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
-    // Build filter
-    const filter = { status: 'active' };
+    // Build filter - only show approved classifieds to public
+    const filter = { status: 'active', approval_status: 'approved' };
 
     if (req.query.classified_type) {
       filter.classified_type = req.query.classified_type;
@@ -122,7 +122,7 @@ router.post('/', protect, classifiedValidation, async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: 'Classified created successfully',
+      message: 'Classified created successfully. It will be visible after admin approval.',
       data: { classified: populatedClassified }
     });
   } catch (error) {

@@ -25,12 +25,43 @@ const PORT = process.env.PORT || 8046;
 const MONGODB_URI = process.env.MONGODB_URI;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
+// Database connection
+let isConnected = false;
+const connectDB = async () => {
+  if (isConnected) return;
+
+  try {
+    await mongoose.connect(MONGODB_URI);
+    isConnected = true;
+    console.log('Successfully connected to MongoDB');
+  } catch (err) {
+    console.error('Database connection error:', err.message);
+    throw err;
+  }
+};
+
 // Security middleware
 app.use(helmet());
 
 // CORS configuration
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, etc)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      process.env.FRONTEND_URL,
+      'http://localhost:5173',
+      'http://localhost:3000'
+    ].filter(Boolean);
+
+    // Allow any Vercel deployment
+    if (origin.endsWith('.vercel.app') || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all origins for now during development
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -46,6 +77,16 @@ if (NODE_ENV === 'development') {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// Middleware to ensure DB connection for each request (for serverless)
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Database connection failed' });
+  }
+});
 
 // Health check route
 app.get('/', (req, res) => {
@@ -127,31 +168,22 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Database connection and server start
-const connectDB = async () => {
-  try {
-    await mongoose.connect(MONGODB_URI);
-    console.log('Successfully connected to MongoDB');
-
-    app.listen(PORT, () => {
-      console.log(`Server running in ${NODE_ENV} mode on port ${PORT}`);
-    });
-  } catch (err) {
-    console.error('Database connection error:', err.message);
-    process.exit(1);
-  }
-};
-
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled Rejection:', err);
-  process.exit(1);
 });
 
-// Export for testing
-module.exports = { app, connectDB };
+// Export for Vercel serverless and testing
+module.exports = app;
+module.exports.connectDB = connectDB;
 
-// Start server if not in test mode
-if (NODE_ENV !== 'test') {
-  connectDB();
+// Start server only in local development (not on Vercel)
+if (NODE_ENV !== 'test' && !process.env.VERCEL) {
+  const startServer = async () => {
+    await connectDB();
+    app.listen(PORT, () => {
+      console.log(`Server running in ${NODE_ENV} mode on port ${PORT}`);
+    });
+  };
+  startServer();
 }

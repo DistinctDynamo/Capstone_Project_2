@@ -11,15 +11,73 @@ import {
   FiPhone,
   FiGlobe,
   FiCheck,
-  FiChevronLeft,
-  FiChevronRight,
   FiDollarSign,
   FiCalendar,
 } from 'react-icons/fi';
 import { GiSoccerField } from 'react-icons/gi';
-import { Card, Badge, Button, Avatar, Loading, Modal } from '../components/common';
+import { Loading } from '../components/common';
 import useAuthStore from '../store/authStore';
 import { fieldsAPI } from '../api';
+
+// Info Card Component
+const InfoCard = ({ label, value, valueClass = 'text-white' }) => (
+  <div className="bg-[#141c28] border border-[#2a3a4d] rounded-lg p-4 text-center">
+    <p className="text-xs text-[#64748b] uppercase tracking-wider mb-1">{label}</p>
+    <p className={`font-semibold ${valueClass}`}>{value}</p>
+  </div>
+);
+
+// Amenity Item Component
+const AmenityItem = ({ name, available }) => (
+  <div className={`flex items-center gap-3 p-3 rounded-lg ${available ? 'bg-[#22c55e]/10 border border-[#22c55e]/20' : 'bg-[#141c28] border border-[#2a3a4d]'}`}>
+    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${available ? 'bg-[#22c55e]/20 text-[#4ade80]' : 'bg-[#2a3a4d] text-[#64748b]'}`}>
+      <FiCheck className="w-4 h-4" />
+    </div>
+    <span className={available ? 'text-white' : 'text-[#64748b] line-through'}>
+      {name}
+    </span>
+  </div>
+);
+
+// Review Card Component
+const ReviewCard = ({ review }) => (
+  <div className="bg-[#141c28] border border-[#2a3a4d] rounded-lg p-4">
+    <div className="flex items-center gap-3 mb-3">
+      {review.user.avatar ? (
+        <img src={review.user.avatar} alt={review.user.name} className="w-10 h-10 rounded-full object-cover" />
+      ) : (
+        <div className="w-10 h-10 rounded-full bg-[#1a5f2a] flex items-center justify-center">
+          <span className="text-sm font-bold text-[#4ade80]">
+            {review.user.name?.charAt(0)?.toUpperCase() || '?'}
+          </span>
+        </div>
+      )}
+      <div className="flex-1">
+        <p className="font-medium text-white">{review.user.name}</p>
+        <p className="text-xs text-[#64748b]">
+          {new Date(review.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+        </p>
+      </div>
+      <div className="flex items-center gap-1">
+        {[...Array(5)].map((_, i) => (
+          <FiStar
+            key={i}
+            className={`w-4 h-4 ${i < review.rating ? 'text-[#f59e0b] fill-[#f59e0b]' : 'text-[#2a3a4d]'}`}
+          />
+        ))}
+      </div>
+    </div>
+    <p className="text-[#94a3b8]">{review.comment}</p>
+  </div>
+);
+
+// Hours Row Component
+const HoursRow = ({ day, hours }) => (
+  <div className="flex justify-between py-2 border-b border-[#1c2430] last:border-0">
+    <span className="text-[#64748b] capitalize">{day}</span>
+    <span className="text-white font-mono text-sm">{hours}</span>
+  </div>
+);
 
 const FieldDetailPage = () => {
   const { id } = useParams();
@@ -39,12 +97,9 @@ const FieldDetailPage = () => {
         const response = await fieldsAPI.getById(id);
         const fieldData = response.data?.field || response.field || response;
 
-        // Helper to format operating hours
         const formatHours = (hours) => {
           if (!hours) return null;
-          // If already formatted as string, return as is
           if (typeof hours.monday === 'string') return hours;
-          // Convert {open: '06:00', close: '23:00'} to '6:00 AM - 11:00 PM'
           const formatTime = (time) => {
             if (!time) return '';
             const [h, m] = time.split(':').map(Number);
@@ -64,14 +119,12 @@ const FieldDetailPage = () => {
           return result;
         };
 
-        // Transform API data to match component expectations
         const transformedField = {
           id: fieldData._id || fieldData.id,
           name: fieldData.name,
           type: fieldData.field_type || fieldData.type || 'outdoor',
           surface: fieldData.surface || 'natural',
           size: fieldData.dimensions || fieldData.size || 'Standard',
-          // Handle address as object {street, city} or string
           address: typeof fieldData.address === 'object'
             ? `${fieldData.address.street || ''}, ${fieldData.address.city || ''}`.replace(/^, |, $/g, '')
             : fieldData.location?.address || fieldData.address || 'Unknown',
@@ -79,7 +132,6 @@ const FieldDetailPage = () => {
             lat: fieldData.address?.coordinates?.lat || fieldData.location?.coordinates?.lat || 0,
             lng: fieldData.address?.coordinates?.lng || fieldData.location?.coordinates?.lng || 0,
           },
-          // Handle rating as object {average, count} or number
           rating: typeof fieldData.rating === 'object' ? fieldData.rating.average : (fieldData.rating || 0),
           reviewCount: typeof fieldData.rating === 'object' ? fieldData.rating.count : (fieldData.reviews?.length || fieldData.reviews_count || 0),
           pricePerHour: fieldData.hourly_rate || fieldData.price_per_hour || fieldData.pricePerHour || 0,
@@ -146,7 +198,6 @@ const FieldDetailPage = () => {
       return;
     }
 
-    // Convert 12-hour format to 24-hour format for backend
     const convertTo24Hour = (time12h) => {
       const [time, modifier] = time12h.split(' ');
       let [hours, minutes] = time.split(':');
@@ -179,7 +230,7 @@ const FieldDetailPage = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="min-h-[60vh] flex items-center justify-center bg-[#0a0e14]">
         <Loading size="lg" text="Loading field details..." />
       </div>
     );
@@ -187,315 +238,345 @@ const FieldDetailPage = () => {
 
   if (!field) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-white mb-4">Field not found</h1>
-        <Link to="/fields" className="btn-primary">
-          Back to Fields
-        </Link>
+      <div className="min-h-screen bg-[#0a0e14] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-20 h-20 rounded-xl bg-[#141c28] border border-[#2a3a4d] flex items-center justify-center mx-auto mb-4">
+            <GiSoccerField className="w-10 h-10 text-[#64748b]" />
+          </div>
+          <h1 className="text-xl font-bold text-white mb-2">Field not found</h1>
+          <p className="text-[#64748b] mb-6">This field may have been removed or doesn't exist</p>
+          <Link
+            to="/fields"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a5f2a] text-[#4ade80] rounded-lg border border-[#22c55e]/30 hover:bg-[#22723a] transition-all"
+          >
+            <FiArrowLeft className="w-4 h-4" />
+            Back to Fields
+          </Link>
+        </div>
       </div>
     );
   }
+
+  const typeColors = {
+    indoor: { bg: 'bg-[#a855f7]/10', text: 'text-[#a855f7]' },
+    outdoor: { bg: 'bg-[#22c55e]/10', text: 'text-[#22c55e]' },
+  };
+
+  const surfaceColors = {
+    natural: { bg: 'bg-[#22c55e]/10', text: 'text-[#22c55e]', label: 'Natural Grass' },
+    artificial: { bg: 'bg-[#3b82f6]/10', text: 'text-[#3b82f6]', label: 'Artificial Turf' },
+  };
+
+  const type = typeColors[field.type?.toLowerCase()] || typeColors.outdoor;
+  const surface = surfaceColors[field.surface?.toLowerCase()] || surfaceColors.natural;
 
   const timeSlots = ['6:00 AM', '7:00 AM', '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM',
     '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM',
     '6:00 PM', '7:00 PM', '8:00 PM', '9:00 PM'];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Back Button */}
-      <Link to="/fields" className="inline-flex items-center gap-2 text-dark-400 hover:text-white mb-6 transition-colors">
-        <FiArrowLeft />
-        Back to Fields
-      </Link>
+    <div className="min-h-screen bg-[#0a0e14]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Back Button */}
+        <Link
+          to="/fields"
+          className="inline-flex items-center gap-2 text-[#64748b] hover:text-white mb-6 transition-colors"
+        >
+          <FiArrowLeft className="w-4 h-4" />
+          <span className="text-sm">Back to Fields</span>
+        </Link>
 
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-8">
-          {/* Hero Image */}
-          <div className="relative rounded-2xl overflow-hidden">
-            <div className="h-80 bg-gradient-to-br from-primary-500/20 to-accent-500/20 flex items-center justify-center">
-              {field.images.length > 0 ? (
-                <img src={field.images[0]} alt={field.name} className="w-full h-full object-cover" />
-              ) : (
-                <GiSoccerField className="w-32 h-32 text-primary-400 opacity-50" />
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Hero Image */}
+            <div className="bg-[#0d1219] border border-[#1c2430] rounded-xl overflow-hidden">
+              <div className="h-64 bg-gradient-to-br from-[#1a5f2a]/30 to-[#141c28] flex items-center justify-center relative">
+                {field.images.length > 0 ? (
+                  <img src={field.images[0]} alt={field.name} className="w-full h-full object-cover" />
+                ) : (
+                  <GiSoccerField className="w-32 h-32 text-[#4ade80]/30" />
+                )}
+                <div className="absolute top-4 left-4 flex gap-2">
+                  <div className={`px-3 py-1 rounded-lg ${type.bg}`}>
+                    <span className={`text-xs font-medium uppercase tracking-wider ${type.text}`}>
+                      {field.type}
+                    </span>
+                  </div>
+                  <div className={`px-3 py-1 rounded-lg ${surface.bg}`}>
+                    <span className={`text-xs font-medium uppercase tracking-wider ${surface.text}`}>
+                      {surface.label}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6">
+                <div className="flex items-start justify-between gap-4 mb-6">
+                  <div>
+                    <h1 className="text-2xl font-bold text-white mb-2">{field.name}</h1>
+                    <div className="flex items-center gap-2 text-[#64748b]">
+                      <FiMapPin className="w-4 h-4" />
+                      <span>{field.address}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-2 bg-[#f59e0b]/10 rounded-lg">
+                    <FiStar className="w-5 h-5 text-[#f59e0b] fill-[#f59e0b]" />
+                    <span className="text-lg font-bold font-mono text-white">{field.rating.toFixed(1)}</span>
+                    <span className="text-sm text-[#64748b]">({field.reviewCount})</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <InfoCard label="Size" value={field.size} />
+                  <InfoCard label="Surface" value={field.surface} valueClass="text-white capitalize" />
+                  <InfoCard
+                    label="Price"
+                    value={field.pricePerHour === 0 ? 'Free' : `$${field.pricePerHour}/hr`}
+                    valueClass="text-[#4ade80]"
+                  />
+                </div>
+
+                <div className="border-t border-[#1c2430] pt-6">
+                  <h2 className="text-xs font-medium text-[#64748b] uppercase tracking-wider mb-4">
+                    About This Field
+                  </h2>
+                  <div className="text-[#94a3b8] whitespace-pre-wrap">
+                    {field.description}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Amenities */}
+            <div className="bg-[#0d1219] border border-[#1c2430] rounded-xl p-6">
+              <h2 className="text-xs font-medium text-[#64748b] uppercase tracking-wider mb-4">
+                Amenities
+              </h2>
+              <div className="grid sm:grid-cols-2 gap-3">
+                {field.amenities.map((amenity, index) => (
+                  <AmenityItem key={index} name={amenity.name} available={amenity.available} />
+                ))}
+              </div>
+              {field.amenities.length === 0 && (
+                <p className="text-center text-[#64748b] py-8">No amenities listed</p>
               )}
             </div>
-            <div className="absolute top-4 left-4 flex gap-2">
-              <Badge variant={field.type === 'indoor' ? 'accent' : 'primary'} size="lg">
-                {field.type}
-              </Badge>
-              <Badge variant="gray" size="lg">
-                {field.surface}
-              </Badge>
+
+            {/* Reviews */}
+            <div className="bg-[#0d1219] border border-[#1c2430] rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xs font-medium text-[#64748b] uppercase tracking-wider">
+                  Reviews ({field.reviews.length})
+                </h2>
+                <button className="px-3 py-1.5 bg-[#141c28] text-[#64748b] rounded-lg border border-[#2a3a4d] hover:text-white hover:border-[#3d4f63] transition-all text-sm">
+                  Write Review
+                </button>
+              </div>
+              <div className="space-y-3">
+                {field.reviews.map((review) => (
+                  <ReviewCard key={review.id} review={review} />
+                ))}
+                {field.reviews.length === 0 && (
+                  <p className="text-center text-[#64748b] py-8">No reviews yet. Be the first to review!</p>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Field Info */}
-          <Card>
-            <div className="flex items-start justify-between gap-4 mb-6">
-              <div>
-                <h1 className="text-3xl font-display font-bold text-white mb-2">
-                  {field.name}
-                </h1>
-                <div className="flex items-center gap-4 text-dark-400">
-                  <span className="flex items-center gap-1">
-                    <FiMapPin className="w-4 h-4" />
-                    {field.address}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-1">
-                <FiStar className="w-5 h-5 text-accent-400 fill-accent-400" />
-                <span className="text-lg font-bold text-white">{field.rating}</span>
-                <span className="text-dark-400">({field.reviewCount} reviews)</span>
-              </div>
-            </div>
-
-            <div className="grid sm:grid-cols-3 gap-4 mb-6 p-4 bg-dark-800/50 rounded-xl">
-              <div className="text-center">
-                <p className="text-sm text-dark-400">Size</p>
-                <p className="font-semibold text-white">{field.size}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-dark-400">Surface</p>
-                <p className="font-semibold text-white capitalize">{field.surface}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-dark-400">Price</p>
-                <p className="font-semibold text-primary-400">
-                  {field.pricePerHour === 0 ? 'Free' : `$${field.pricePerHour}/hr`}
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Booking Card */}
+            <div className="bg-[#0d1219] border border-[#1c2430] rounded-xl p-6 sticky top-24">
+              <div className="text-center mb-6">
+                <p className="text-4xl font-bold font-mono text-white mb-1">
+                  {field.pricePerHour === 0 ? 'Free' : `$${field.pricePerHour}`}
                 </p>
+                {field.pricePerHour > 0 && (
+                  <p className="text-xs text-[#64748b] uppercase tracking-wider">per hour</p>
+                )}
+              </div>
+
+              <button
+                onClick={() => setShowBookingModal(true)}
+                className="w-full py-3 bg-[#1a5f2a] text-[#4ade80] rounded-lg border border-[#22c55e]/30 hover:bg-[#22723a] transition-all font-medium"
+              >
+                {field.pricePerHour === 0 ? 'Check Availability' : 'Book Now'}
+              </button>
+
+              <div className="flex gap-2 mt-4">
+                <button className="flex-1 py-2 bg-[#141c28] text-[#64748b] rounded-lg border border-[#2a3a4d] hover:text-white hover:border-[#3d4f63] transition-all flex items-center justify-center gap-2">
+                  <FiShare2 className="w-4 h-4" />
+                  Share
+                </button>
+                <button className="flex-1 py-2 bg-[#141c28] text-[#64748b] rounded-lg border border-[#2a3a4d] hover:text-white hover:border-[#3d4f63] transition-all flex items-center justify-center gap-2">
+                  <FiHeart className="w-4 h-4" />
+                  Save
+                </button>
               </div>
             </div>
 
-            <div className="border-t border-dark-700 pt-6">
-              <h2 className="text-xl font-semibold text-white mb-4">About this field</h2>
-              <div className="prose prose-invert max-w-none">
-                {field.description.split('\n').map((paragraph, index) => (
-                  <p key={index} className="text-dark-300 mb-4 whitespace-pre-wrap">
-                    {paragraph}
-                  </p>
+            {/* Hours */}
+            <div className="bg-[#0d1219] border border-[#1c2430] rounded-xl p-6">
+              <h3 className="text-xs font-medium text-[#64748b] uppercase tracking-wider mb-4 flex items-center gap-2">
+                <FiClock className="w-4 h-4 text-[#4ade80]" />
+                Hours
+              </h3>
+              <div>
+                {Object.entries(field.hours).map(([day, hours]) => (
+                  <HoursRow key={day} day={day} hours={hours} />
                 ))}
               </div>
             </div>
-          </Card>
 
-          {/* Amenities */}
-          <Card>
-            <h2 className="text-xl font-semibold text-white mb-6">Amenities</h2>
-            <div className="grid sm:grid-cols-2 gap-4">
-              {field.amenities.map((amenity, index) => (
-                <div
-                  key={index}
-                  className={`flex items-center gap-3 p-3 rounded-xl ${
-                    amenity.available ? 'bg-primary-500/10' : 'bg-dark-800/50'
-                  }`}
-                >
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    amenity.available ? 'bg-primary-500/20 text-primary-400' : 'bg-dark-700 text-dark-500'
-                  }`}>
-                    <FiCheck className="w-4 h-4" />
-                  </div>
-                  <span className={amenity.available ? 'text-white' : 'text-dark-500 line-through'}>
-                    {amenity.name}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          {/* Reviews */}
-          <Card>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-white">Reviews</h2>
-              <Button variant="secondary" size="sm">Write Review</Button>
-            </div>
-            <div className="space-y-4">
-              {field.reviews.map((review) => (
-                <div key={review.id} className="p-4 rounded-xl bg-dark-800/50">
-                  <div className="flex items-center gap-3 mb-3">
-                    <Avatar src={review.user.avatar} name={review.user.name} size="sm" />
-                    <div className="flex-1">
-                      <p className="font-medium text-white">{review.user.name}</p>
-                      <p className="text-sm text-dark-400">
-                        {new Date(review.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {[...Array(5)].map((_, i) => (
-                        <FiStar
-                          key={i}
-                          className={`w-4 h-4 ${i < review.rating ? 'text-accent-400 fill-accent-400' : 'text-dark-600'}`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  <p className="text-dark-300">{review.comment}</p>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Booking Card */}
-          <Card className="sticky top-24">
-            <div className="text-center mb-6">
-              <p className="text-3xl font-bold text-white mb-1">
-                {field.pricePerHour === 0 ? 'Free' : `$${field.pricePerHour}`}
-              </p>
-              {field.pricePerHour > 0 && <p className="text-dark-400">per hour</p>}
-            </div>
-
-            <Button
-              variant="primary"
-              className="w-full mb-4"
-              onClick={() => setShowBookingModal(true)}
-            >
-              {field.pricePerHour === 0 ? 'Check Availability' : 'Book Now'}
-            </Button>
-
-            <div className="flex gap-2">
-              <Button variant="secondary" className="flex-1">
-                <FiShare2 />
-                Share
-              </Button>
-              <Button variant="secondary" className="flex-1">
-                <FiHeart />
-                Save
-              </Button>
-            </div>
-          </Card>
-
-          {/* Hours */}
-          <Card>
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <FiClock className="text-primary-400" />
-              Hours
-            </h3>
-            <div className="space-y-2 text-sm">
-              {Object.entries(field.hours).map(([day, hours]) => (
-                <div key={day} className="flex justify-between">
-                  <span className="text-dark-400 capitalize">{day}</span>
-                  <span className="text-white">{hours}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          {/* Contact */}
-          <Card>
-            <h3 className="text-lg font-semibold text-white mb-4">Contact</h3>
-            <div className="space-y-3">
-              <a
-                href={`tel:${field.contact.phone}`}
-                className="flex items-center gap-3 p-3 rounded-xl bg-dark-800/50 hover:bg-dark-800 transition-colors"
-              >
-                <FiPhone className="w-5 h-5 text-primary-400" />
-                <span className="text-white">{field.contact.phone}</span>
-              </a>
-              <a
-                href={field.contact.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 p-3 rounded-xl bg-dark-800/50 hover:bg-dark-800 transition-colors"
-              >
-                <FiGlobe className="w-5 h-5 text-primary-400" />
-                <span className="text-white">Visit Website</span>
-              </a>
-            </div>
-          </Card>
-
-          {/* Upcoming Events */}
-          {field.upcomingEvents.length > 0 && (
-            <Card>
-              <h3 className="text-lg font-semibold text-white mb-4">Upcoming Events</h3>
+            {/* Contact */}
+            <div className="bg-[#0d1219] border border-[#1c2430] rounded-xl p-6">
+              <h3 className="text-xs font-medium text-[#64748b] uppercase tracking-wider mb-4">
+                Contact
+              </h3>
               <div className="space-y-3">
-                {field.upcomingEvents.map((event) => (
-                  <Link
-                    key={event.id}
-                    to={`/events/${event.id}`}
-                    className="block p-3 rounded-xl bg-dark-800/50 hover:bg-dark-800 transition-colors"
+                <a
+                  href={`tel:${field.contact.phone}`}
+                  className="flex items-center gap-3 p-3 bg-[#141c28] border border-[#2a3a4d] rounded-lg hover:border-[#3d4f63] transition-all"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-[#22c55e]/10 flex items-center justify-center">
+                    <FiPhone className="w-5 h-5 text-[#4ade80]" />
+                  </div>
+                  <span className="text-white">{field.contact.phone}</span>
+                </a>
+                {field.contact.website && (
+                  <a
+                    href={field.contact.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 p-3 bg-[#141c28] border border-[#2a3a4d] rounded-lg hover:border-[#3d4f63] transition-all"
                   >
-                    <p className="font-medium text-white mb-1">{event.title}</p>
-                    <p className="text-sm text-dark-400">
-                      {new Date(event.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at {event.time}
-                    </p>
-                  </Link>
-                ))}
+                    <div className="w-10 h-10 rounded-lg bg-[#3b82f6]/10 flex items-center justify-center">
+                      <FiGlobe className="w-5 h-5 text-[#3b82f6]" />
+                    </div>
+                    <span className="text-white">Visit Website</span>
+                  </a>
+                )}
               </div>
-            </Card>
-          )}
+            </div>
+
+            {/* Upcoming Events */}
+            {field.upcomingEvents.length > 0 && (
+              <div className="bg-[#0d1219] border border-[#1c2430] rounded-xl p-6">
+                <h3 className="text-xs font-medium text-[#64748b] uppercase tracking-wider mb-4">
+                  Upcoming Events
+                </h3>
+                <div className="space-y-3">
+                  {field.upcomingEvents.map((event) => (
+                    <Link
+                      key={event.id}
+                      to={`/events/${event.id}`}
+                      className="block p-4 bg-[#141c28] border border-[#2a3a4d] rounded-lg hover:border-[#3d4f63] transition-all"
+                    >
+                      <p className="font-medium text-white mb-2">{event.title}</p>
+                      <div className="flex items-center gap-4 text-sm text-[#64748b]">
+                        <span className="flex items-center gap-1">
+                          <FiCalendar className="w-4 h-4" />
+                          {new Date(event.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <FiClock className="w-4 h-4" />
+                          {event.time}
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Booking Modal */}
-      <Modal isOpen={showBookingModal} onClose={() => setShowBookingModal(false)} title="Book Field" size="lg">
-        <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-dark-200 mb-2">
-              Select Date
-            </label>
-            <input
-              type="date"
-              className="input"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-dark-200 mb-2">
-              Start Time
-            </label>
-            <div className="grid grid-cols-4 gap-2">
-              {timeSlots.map((time) => (
-                <button
-                  key={time}
-                  type="button"
-                  onClick={() => setSelectedStartTime(time)}
-                  className={`p-2 rounded-lg text-sm transition-colors ${
-                    selectedStartTime === time
-                      ? 'bg-primary-500 text-white'
-                      : 'bg-dark-800 text-dark-300 hover:bg-dark-700'
-                  }`}
-                >
-                  {time}
-                </button>
-              ))}
+      {showBookingModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setShowBookingModal(false)} />
+          <div className="relative w-full max-w-lg bg-[#0d1219] border border-[#1c2430] rounded-xl p-6">
+            <h2 className="text-xl font-bold text-white mb-2">Book Field</h2>
+            <p className="text-sm text-[#64748b] mb-6">Select your preferred date and time</p>
+
+            <div className="space-y-6">
+              <div>
+                <label className="block text-xs font-medium text-[#64748b] uppercase tracking-wider mb-2">
+                  Select Date
+                </label>
+                <input
+                  type="date"
+                  className="w-full px-4 py-3 bg-[#141c28] border border-[#2a3a4d] rounded-lg text-white focus:outline-none focus:border-[#4ade80]/50"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[#64748b] uppercase tracking-wider mb-2">
+                  Start Time
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {timeSlots.map((time) => (
+                    <button
+                      key={`start-${time}`}
+                      type="button"
+                      onClick={() => setSelectedStartTime(time)}
+                      className={`p-2 rounded-lg text-sm transition-colors ${
+                        selectedStartTime === time
+                          ? 'bg-[#1a5f2a] text-[#4ade80] border border-[#22c55e]/30'
+                          : 'bg-[#141c28] text-[#94a3b8] border border-[#2a3a4d] hover:border-[#3d4f63]'
+                      }`}
+                    >
+                      {time}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[#64748b] uppercase tracking-wider mb-2">
+                  End Time
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {timeSlots.map((time) => (
+                    <button
+                      key={`end-${time}`}
+                      type="button"
+                      onClick={() => setSelectedEndTime(time)}
+                      className={`p-2 rounded-lg text-sm transition-colors ${
+                        selectedEndTime === time
+                          ? 'bg-[#1a5f2a] text-[#4ade80] border border-[#22c55e]/30'
+                          : 'bg-[#141c28] text-[#94a3b8] border border-[#2a3a4d] hover:border-[#3d4f63]'
+                      }`}
+                    >
+                      {time}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowBookingModal(false)}
+                className="flex-1 py-3 bg-[#141c28] text-white rounded-lg border border-[#2a3a4d] hover:bg-[#1c2430] transition-all font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBooking}
+                disabled={isBooking}
+                className="flex-1 py-3 bg-[#1a5f2a] text-[#4ade80] rounded-lg border border-[#22c55e]/30 hover:bg-[#22723a] transition-all font-medium disabled:opacity-50"
+              >
+                {isBooking ? 'Processing...' : field.pricePerHour === 0 ? 'Reserve Spot' : 'Proceed to Payment'}
+              </button>
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-dark-200 mb-2">
-              End Time
-            </label>
-            <div className="grid grid-cols-4 gap-2">
-              {timeSlots.map((time) => (
-                <button
-                  key={time}
-                  type="button"
-                  onClick={() => setSelectedEndTime(time)}
-                  className={`p-2 rounded-lg text-sm transition-colors ${
-                    selectedEndTime === time
-                      ? 'bg-primary-500 text-white'
-                      : 'bg-dark-800 text-dark-300 hover:bg-dark-700'
-                  }`}
-                >
-                  {time}
-                </button>
-              ))}
-            </div>
-          </div>
-          <Modal.Actions>
-            <Button variant="secondary" onClick={() => setShowBookingModal(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={handleBooking} isLoading={isBooking}>
-              {field.pricePerHour === 0 ? 'Reserve Spot' : 'Proceed to Payment'}
-            </Button>
-          </Modal.Actions>
         </div>
-      </Modal>
+      )}
     </div>
   );
 };

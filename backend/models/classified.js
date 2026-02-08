@@ -76,6 +76,22 @@ const classifiedSchema = new mongoose.Schema({
   expires_at: {
     type: Date,
     default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+  },
+  // Admin approval fields
+  approval_status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending'
+  },
+  approved_by: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  approved_at: {
+    type: Date
+  },
+  rejection_reason: {
+    type: String
   }
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }

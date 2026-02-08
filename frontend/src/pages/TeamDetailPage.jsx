@@ -5,17 +5,107 @@ import {
   FiMapPin,
   FiUsers,
   FiCalendar,
-  FiStar,
   FiArrowLeft,
   FiShare2,
-  FiMessageSquare,
   FiCheck,
   FiClock,
+  FiUserPlus,
 } from 'react-icons/fi';
-import { GiSoccerBall, GiWhistle, GiTrophy } from 'react-icons/gi';
-import { Card, Badge, Button, Avatar, Loading, Modal } from '../components/common';
+import { GiWhistle, GiTrophy, GiSoccerBall } from 'react-icons/gi';
+import { Loading } from '../components/common';
 import useAuthStore from '../store/authStore';
 import { teamsAPI } from '../api';
+
+// Stat Box Component
+const StatBox = ({ value, label, color = '#4ade80' }) => (
+  <div className="bg-[#141c28] border border-[#2a3a4d] rounded-lg p-4 text-center">
+    <p className="text-2xl font-bold font-mono" style={{ color }}>{value}</p>
+    <p className="text-xs text-[#64748b] uppercase tracking-wider mt-1">{label}</p>
+  </div>
+);
+
+// Info Row Component
+const InfoRow = ({ label, value, link }) => (
+  <div className="flex justify-between items-center py-3 border-b border-[#1c2430] last:border-0">
+    <span className="text-xs text-[#64748b] uppercase tracking-wider">{label}</span>
+    {link ? (
+      <Link to={link} className="text-[#4ade80] hover:text-[#22c55e] transition-colors font-medium">
+        {value}
+      </Link>
+    ) : (
+      <span className="text-white font-medium">{value}</span>
+    )}
+  </div>
+);
+
+// Player Row Component
+const PlayerRow = ({ player, index }) => (
+  <Link
+    to={`/players/${player.id}`}
+    className="flex items-center gap-4 p-3 bg-[#0d1219] border border-[#1c2430] rounded-lg hover:border-[#2a3a4d] transition-all group"
+  >
+    <div className="w-10 h-10 rounded-lg bg-[#141c28] border border-[#2a3a4d] flex items-center justify-center">
+      <span className="text-sm font-bold font-mono text-[#4ade80]">{player.number || index + 1}</span>
+    </div>
+    {player.avatar ? (
+      <img src={player.avatar} alt={player.name} className="w-10 h-10 rounded-full object-cover" />
+    ) : (
+      <div className="w-10 h-10 rounded-full bg-[#1a5f2a] flex items-center justify-center">
+        <span className="text-sm font-bold text-[#4ade80]">
+          {player.name?.charAt(0)?.toUpperCase() || '?'}
+        </span>
+      </div>
+    )}
+    <div className="flex-1 min-w-0">
+      <p className="font-medium text-white group-hover:text-[#4ade80] transition-colors truncate">
+        {player.name}
+      </p>
+      <p className="text-xs text-[#64748b]">{player.position || 'Player'}</p>
+    </div>
+    {player.role && player.role !== 'Member' && (
+      <div className={`px-2 py-1 rounded text-xs font-medium uppercase tracking-wider ${
+        player.role === 'Captain' || player.role === 'owner'
+          ? 'bg-[#f59e0b]/10 text-[#f59e0b]'
+          : 'bg-[#3b82f6]/10 text-[#3b82f6]'
+      }`}>
+        {player.role}
+      </div>
+    )}
+  </Link>
+);
+
+// Match Card Component
+const MatchCard = ({ match }) => (
+  <div className="bg-[#141c28] border border-[#2a3a4d] rounded-lg p-4">
+    <div className="flex items-center justify-between mb-3">
+      <span className="text-xs text-[#64748b] uppercase tracking-wider">vs</span>
+      <span className="px-2 py-0.5 bg-[#a855f7]/10 text-[#a855f7] text-xs rounded uppercase">
+        {match.type || 'Match'}
+      </span>
+    </div>
+    <p className="font-semibold text-white mb-3">{match.opponent}</p>
+    <div className="space-y-2 text-sm">
+      <div className="flex items-center gap-2 text-[#64748b]">
+        <FiCalendar className="w-4 h-4" />
+        <span>
+          {new Date(match.date).toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+          })}
+        </span>
+      </div>
+      <div className="flex items-center gap-2 text-[#64748b]">
+        <FiClock className="w-4 h-4" />
+        <span>{match.time}</span>
+      </div>
+      <div className="flex items-center gap-2 text-[#64748b]">
+        <FiMapPin className="w-4 h-4" />
+        <span className="truncate">{match.location}</span>
+      </div>
+    </div>
+  </div>
+);
 
 const TeamDetailPage = () => {
   const { id } = useParams();
@@ -35,7 +125,6 @@ const TeamDetailPage = () => {
         const response = await teamsAPI.getById(id);
         const teamData = response.data?.team || response.team || response;
 
-        // Transform API data to match component expectations
         const transformedTeam = {
           id: teamData._id || teamData.id,
           name: teamData.team_name || teamData.name,
@@ -81,7 +170,6 @@ const TeamDetailPage = () => {
 
         setTeam(transformedTeam);
 
-        // Check if user has already requested to join
         if (teamData.applications) {
           const userApplication = teamData.applications.find(
             app => (app.user?._id || app.user) === user?._id
@@ -102,17 +190,10 @@ const TeamDetailPage = () => {
     fetchTeam();
   }, [id, user]);
 
-  const getLevelColor = (level) => {
-    switch (level) {
-      case 'recreational':
-        return 'success';
-      case 'intermediate':
-        return 'accent';
-      case 'competitive':
-        return 'danger';
-      default:
-        return 'gray';
-    }
+  const levelColors = {
+    recreational: { bg: 'bg-[#22c55e]/10', text: 'text-[#22c55e]' },
+    intermediate: { bg: 'bg-[#f59e0b]/10', text: 'text-[#f59e0b]' },
+    competitive: { bg: 'bg-[#ef4444]/10', text: 'text-[#ef4444]' },
   };
 
   const handleJoinRequest = async () => {
@@ -139,7 +220,7 @@ const TeamDetailPage = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="min-h-[60vh] flex items-center justify-center bg-[#0a0e14]">
         <Loading size="lg" text="Loading team..." />
       </div>
     );
@@ -147,299 +228,338 @@ const TeamDetailPage = () => {
 
   if (!team) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-white mb-4">Team not found</h1>
-        <Link to="/teams" className="btn-primary">
-          Back to Teams
-        </Link>
+      <div className="min-h-screen bg-[#0a0e14] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-20 h-20 rounded-xl bg-[#141c28] border border-[#2a3a4d] flex items-center justify-center mx-auto mb-4">
+            <GiWhistle className="w-10 h-10 text-[#64748b]" />
+          </div>
+          <h1 className="text-xl font-bold text-white mb-2">Team not found</h1>
+          <p className="text-[#64748b] mb-6">This team may have been removed or doesn't exist</p>
+          <Link
+            to="/teams"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a5f2a] text-[#4ade80] rounded-lg border border-[#22c55e]/30 hover:bg-[#22723a] transition-all"
+          >
+            <FiArrowLeft className="w-4 h-4" />
+            Back to Teams
+          </Link>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Back Button */}
-      <Link to="/teams" className="inline-flex items-center gap-2 text-dark-400 hover:text-white mb-6 transition-colors">
-        <FiArrowLeft />
-        Back to Teams
-      </Link>
+  const level = levelColors[team.level] || levelColors.recreational;
+  const totalGames = team.stats.wins + team.stats.draws + team.stats.losses;
+  const winRate = totalGames > 0 ? Math.round((team.stats.wins / totalGames) * 100) : 0;
+  const goalDiff = team.stats.goalsFor - team.stats.goalsAgainst;
 
-      {/* Header */}
-      <div className="card mb-8">
-        <div className="flex flex-col md:flex-row md:items-center gap-6">
-          <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center flex-shrink-0">
-            {team.logo ? (
-              <img src={team.logo} alt={team.name} className="w-full h-full object-cover rounded-2xl" />
-            ) : (
-              <GiWhistle className="w-12 h-12 text-white" />
-            )}
-          </div>
-          <div className="flex-1">
-            <div className="flex flex-wrap items-center gap-3 mb-2">
-              <h1 className="text-3xl font-display font-bold text-white">{team.name}</h1>
-              <Badge variant={getLevelColor(team.level)} size="lg">
-                {team.level}
-              </Badge>
-              {team.recruiting && (
-                <Badge variant="success" size="lg">
-                  Recruiting
-                </Badge>
+  return (
+    <div className="min-h-screen bg-[#0a0e14]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Back Button */}
+        <Link
+          to="/teams"
+          className="inline-flex items-center gap-2 text-[#64748b] hover:text-white mb-6 transition-colors"
+        >
+          <FiArrowLeft className="w-4 h-4" />
+          <span className="text-sm">Back to Teams</span>
+        </Link>
+
+        {/* Header Card */}
+        <div className="bg-[#0d1219] border border-[#1c2430] rounded-xl p-6 mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+            {/* Team Logo */}
+            <div className="w-24 h-24 rounded-xl bg-[#1a5f2a] border border-[#22c55e]/30 flex items-center justify-center flex-shrink-0">
+              {team.logo ? (
+                <img src={team.logo} alt={team.name} className="w-full h-full object-cover rounded-xl" />
+              ) : (
+                <GiSoccerBall className="w-12 h-12 text-[#4ade80]" />
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-4 text-dark-400">
-              <span className="flex items-center gap-1">
-                <FiMapPin className="w-4 h-4" />
-                {team.location}
-              </span>
-              <span className="flex items-center gap-1">
-                <FiUsers className="w-4 h-4" />
-                {team.members} members
-              </span>
-              <span className="flex items-center gap-1">
-                <FiCalendar className="w-4 h-4" />
-                Founded {team.founded}
-              </span>
-              <span className="flex items-center gap-1">
-                <FiStar className="w-4 h-4 text-accent-400" />
-                {team.rating}
-              </span>
-            </div>
-          </div>
-          <div className="flex gap-3">
-            {team.recruiting && (
-              hasRequested ? (
-                <Button variant="secondary" disabled>
-                  <FiCheck />
-                  Request Sent
-                </Button>
-              ) : (
-                <Button variant="primary" onClick={() => {
-                  if (!isAuthenticated) {
-                    toast.error('Please login to join teams');
-                    return;
-                  }
-                  setShowJoinModal(true);
-                }}>
-                  Request to Join
-                </Button>
-              )
-            )}
-            <Button variant="secondary">
-              <FiShare2 />
-            </Button>
-          </div>
-        </div>
-      </div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-8">
-          {/* Stats */}
-          <Card>
-            <h2 className="text-xl font-semibold text-white mb-6">Season Stats</h2>
-            <div className="grid grid-cols-5 gap-4">
-              <div className="text-center p-4 bg-dark-800/50 rounded-xl">
-                <p className="text-2xl font-bold text-green-400">{team.stats.wins}</p>
-                <p className="text-sm text-dark-400">Wins</p>
-              </div>
-              <div className="text-center p-4 bg-dark-800/50 rounded-xl">
-                <p className="text-2xl font-bold text-dark-300">{team.stats.draws}</p>
-                <p className="text-sm text-dark-400">Draws</p>
-              </div>
-              <div className="text-center p-4 bg-dark-800/50 rounded-xl">
-                <p className="text-2xl font-bold text-red-400">{team.stats.losses}</p>
-                <p className="text-sm text-dark-400">Losses</p>
-              </div>
-              <div className="text-center p-4 bg-dark-800/50 rounded-xl">
-                <p className="text-2xl font-bold text-primary-400">{team.stats.goalsFor}</p>
-                <p className="text-sm text-dark-400">GF</p>
-              </div>
-              <div className="text-center p-4 bg-dark-800/50 rounded-xl">
-                <p className="text-2xl font-bold text-accent-400">{team.stats.goalsAgainst}</p>
-                <p className="text-sm text-dark-400">GA</p>
-              </div>
-            </div>
-          </Card>
-
-          {/* About */}
-          <Card>
-            <h2 className="text-xl font-semibold text-white mb-4">About</h2>
-            <div className="prose prose-invert max-w-none">
-              {team.description.split('\n').map((paragraph, index) => (
-                <p key={index} className="text-dark-300 mb-4 whitespace-pre-wrap">
-                  {paragraph}
-                </p>
-              ))}
-            </div>
-          </Card>
-
-          {/* Roster */}
-          <Card>
-            <h2 className="text-xl font-semibold text-white mb-6">Roster</h2>
-            <div className="grid sm:grid-cols-2 gap-4">
-              {team.roster.map((player) => (
-                <Link
-                  key={player.id}
-                  to={`/players/${player.id}`}
-                  className="flex items-center gap-4 p-4 rounded-xl bg-dark-800/50 hover:bg-dark-700/50 transition-colors group"
-                >
-                  <div className="relative">
-                    <Avatar src={player.avatar} name={player.name} size="md" />
-                    <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-dark-700 text-white text-xs font-bold flex items-center justify-center">
-                      {player.number}
+            {/* Team Info */}
+            <div className="flex-1">
+              <div className="flex flex-wrap items-center gap-3 mb-2">
+                <h1 className="text-2xl font-bold text-white">{team.name}</h1>
+                <div className={`px-3 py-1 rounded-lg ${level.bg}`}>
+                  <span className={`text-xs font-medium uppercase tracking-wider ${level.text}`}>
+                    {team.level}
+                  </span>
+                </div>
+                {team.recruiting && (
+                  <div className="flex items-center gap-1.5 px-3 py-1 bg-[#22c55e]/10 rounded-lg">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#22c55e] opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#4ade80]"></span>
+                    </span>
+                    <span className="text-xs font-medium text-[#4ade80] uppercase tracking-wider">
+                      Recruiting
                     </span>
                   </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-white group-hover:text-primary-400 transition-colors">{player.name}</p>
-                    <p className="text-sm text-dark-400">{player.position}</p>
-                  </div>
-                  {player.role !== 'Member' && (
-                    <Badge variant={player.role === 'Captain' ? 'accent' : 'gray'} size="sm">
-                      {player.role}
-                    </Badge>
-                  )}
-                </Link>
-              ))}
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-4 text-sm text-[#64748b]">
+                <span className="flex items-center gap-1.5">
+                  <FiMapPin className="w-4 h-4" />
+                  {team.location}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <FiUsers className="w-4 h-4" />
+                  {team.members} members
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <FiCalendar className="w-4 h-4" />
+                  Founded {team.founded}
+                </span>
+              </div>
             </div>
-          </Card>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              {team.recruiting && (
+                hasRequested ? (
+                  <button
+                    disabled
+                    className="px-4 py-2 bg-[#141c28] text-[#64748b] rounded-lg border border-[#2a3a4d] flex items-center gap-2 cursor-not-allowed"
+                  >
+                    <FiCheck className="w-4 h-4" />
+                    Request Sent
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        toast.error('Please login to join teams');
+                        return;
+                      }
+                      setShowJoinModal(true);
+                    }}
+                    className="px-4 py-2 bg-[#1a5f2a] text-[#4ade80] rounded-lg border border-[#22c55e]/30 hover:bg-[#22723a] transition-all flex items-center gap-2"
+                  >
+                    <FiUserPlus className="w-4 h-4" />
+                    Request to Join
+                  </button>
+                )
+              )}
+              <button className="p-2 bg-[#141c28] text-[#64748b] rounded-lg border border-[#2a3a4d] hover:text-white hover:border-[#3d4f63] transition-all">
+                <FiShare2 className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Quick Info */}
-          <Card>
-            <h3 className="text-lg font-semibold text-white mb-4">Team Info</h3>
-            <div className="space-y-4 text-sm">
-              <div className="flex justify-between">
-                <span className="text-dark-400">Home Field</span>
-                <span className="text-white">{team.homeField}</span>
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Season Stats */}
+            <div className="bg-[#0d1219] border border-[#1c2430] rounded-xl p-6">
+              <h2 className="text-xs font-medium text-[#64748b] uppercase tracking-wider mb-4">
+                Season Statistics
+              </h2>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                <StatBox value={team.stats.wins} label="Wins" color="#22c55e" />
+                <StatBox value={team.stats.draws} label="Draws" color="#64748b" />
+                <StatBox value={team.stats.losses} label="Losses" color="#ef4444" />
+                <StatBox value={team.stats.goalsFor} label="GF" color="#3b82f6" />
+                <StatBox value={team.stats.goalsAgainst} label="GA" color="#f59e0b" />
+                <StatBox value={`${goalDiff >= 0 ? '+' : ''}${goalDiff}`} label="GD" color={goalDiff >= 0 ? '#22c55e' : '#ef4444'} />
               </div>
-              <div className="flex justify-between">
-                <span className="text-dark-400">Practice</span>
-                <span className="text-white">{team.practiceSchedule}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-dark-400">Captain</span>
-                <Link to={`/players/${team.captain.id}`} className="text-white hover:text-primary-400 transition-colors">
-                  {team.captain.name}
-                </Link>
-              </div>
-            </div>
-          </Card>
-
-          {/* Recruiting */}
-          {team.recruiting && (
-            <Card className="border-primary-500/30">
-              <h3 className="text-lg font-semibold text-primary-400 mb-4">Now Recruiting</h3>
-              <p className="text-dark-400 mb-4">We're looking for players in these positions:</p>
-              <div className="flex flex-wrap gap-2 mb-4">
-                {team.recruitingPositions.map((pos, index) => (
-                  <Badge key={index} variant="primary">
-                    {pos}
-                  </Badge>
-                ))}
-              </div>
-              <Button variant="primary" className="w-full" onClick={() => setShowJoinModal(true)}>
-                Apply Now
-              </Button>
-            </Card>
-          )}
-
-          {/* Achievements */}
-          {team.achievements.length > 0 && (
-            <Card>
-              <h3 className="text-lg font-semibold text-white mb-4">Achievements</h3>
-              <div className="space-y-3">
-                {team.achievements.map((achievement, index) => (
-                  <div key={index} className="flex items-center gap-3 p-3 rounded-xl bg-accent-500/10">
-                    <div className="w-10 h-10 rounded-full bg-accent-500/20 flex items-center justify-center">
-                      <GiTrophy className="w-5 h-5 text-accent-400" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-white">{achievement.title}</p>
-                      <p className="text-sm text-dark-400">{achievement.year}</p>
-                    </div>
+              {totalGames > 0 && (
+                <div className="mt-4 pt-4 border-t border-[#1c2430]">
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <span className="text-[#64748b]">Win Rate</span>
+                    <span className="font-mono text-white">{winRate}%</span>
                   </div>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {/* Upcoming Matches */}
-          <Card>
-            <h3 className="text-lg font-semibold text-white mb-4">Upcoming Matches</h3>
-            <div className="space-y-3">
-              {team.upcomingMatches.map((match) => (
-                <div key={match.id} className="p-4 rounded-xl bg-dark-800/50">
-                  <p className="font-medium text-white mb-1">vs {match.opponent}</p>
-                  <div className="text-sm text-dark-400 space-y-1">
-                    <p className="flex items-center gap-2">
-                      <FiCalendar className="w-4 h-4" />
-                      {new Date(match.date).toLocaleDateString('en-US', {
-                        weekday: 'short',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </p>
-                    <p className="flex items-center gap-2">
-                      <FiClock className="w-4 h-4" />
-                      {match.time}
-                    </p>
-                    <p className="flex items-center gap-2">
-                      <FiMapPin className="w-4 h-4" />
-                      {match.location}
-                    </p>
+                  <div className="h-2 bg-[#141c28] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-[#22c55e] rounded-full transition-all"
+                      style={{ width: `${winRate}%` }}
+                    />
                   </div>
                 </div>
-              ))}
+              )}
             </div>
-          </Card>
+
+            {/* About */}
+            <div className="bg-[#0d1219] border border-[#1c2430] rounded-xl p-6">
+              <h2 className="text-xs font-medium text-[#64748b] uppercase tracking-wider mb-4">
+                About
+              </h2>
+              <div className="text-[#94a3b8] whitespace-pre-wrap">
+                {team.description}
+              </div>
+            </div>
+
+            {/* Roster */}
+            <div className="bg-[#0d1219] border border-[#1c2430] rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xs font-medium text-[#64748b] uppercase tracking-wider">
+                  Roster
+                </h2>
+                <span className="text-sm text-[#64748b]">{team.roster.length} players</span>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3">
+                {team.roster.map((player, index) => (
+                  <PlayerRow key={player.id} player={player} index={index} />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Team Info */}
+            <div className="bg-[#0d1219] border border-[#1c2430] rounded-xl p-6">
+              <h3 className="text-xs font-medium text-[#64748b] uppercase tracking-wider mb-4">
+                Team Info
+              </h3>
+              <div>
+                <InfoRow label="Home Field" value={team.homeField} />
+                <InfoRow label="Practice" value={team.practiceSchedule} />
+                <InfoRow label="Captain" value={team.captain.name} link={`/players/${team.captain.id}`} />
+                <InfoRow label="Total Games" value={totalGames} />
+              </div>
+            </div>
+
+            {/* Recruiting */}
+            {team.recruiting && (
+              <div className="bg-[#0d1219] border border-[#22c55e]/30 rounded-xl p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#22c55e] opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#4ade80]"></span>
+                  </span>
+                  <h3 className="text-xs font-medium text-[#4ade80] uppercase tracking-wider">
+                    Now Recruiting
+                  </h3>
+                </div>
+                <p className="text-sm text-[#94a3b8] mb-4">
+                  Looking for players in these positions:
+                </p>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {team.recruitingPositions.length > 0 ? (
+                    team.recruitingPositions.map((pos, index) => (
+                      <span
+                        key={index}
+                        className="px-3 py-1 bg-[#1a5f2a] text-[#4ade80] text-xs rounded-lg border border-[#22c55e]/30"
+                      >
+                        {pos}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-sm text-[#64748b]">All positions</span>
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowJoinModal(true)}
+                  className="w-full py-2 bg-[#1a5f2a] text-[#4ade80] rounded-lg border border-[#22c55e]/30 hover:bg-[#22723a] transition-all text-sm font-medium"
+                >
+                  Apply Now
+                </button>
+              </div>
+            )}
+
+            {/* Achievements */}
+            {team.achievements.length > 0 && (
+              <div className="bg-[#0d1219] border border-[#1c2430] rounded-xl p-6">
+                <h3 className="text-xs font-medium text-[#64748b] uppercase tracking-wider mb-4">
+                  Achievements
+                </h3>
+                <div className="space-y-3">
+                  {team.achievements.map((achievement, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-3 p-3 bg-[#f59e0b]/10 border border-[#f59e0b]/20 rounded-lg"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-[#f59e0b]/20 flex items-center justify-center">
+                        <GiTrophy className="w-5 h-5 text-[#f59e0b]" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-white text-sm">{achievement.title}</p>
+                        <p className="text-xs text-[#64748b]">{achievement.year}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Upcoming Matches */}
+            {team.upcomingMatches.length > 0 && (
+              <div className="bg-[#0d1219] border border-[#1c2430] rounded-xl p-6">
+                <h3 className="text-xs font-medium text-[#64748b] uppercase tracking-wider mb-4">
+                  Upcoming Matches
+                </h3>
+                <div className="space-y-3">
+                  {team.upcomingMatches.map((match) => (
+                    <MatchCard key={match.id} match={match} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Join Modal */}
-      <Modal isOpen={showJoinModal} onClose={() => setShowJoinModal(false)} title={`Join ${team.name}`}>
-        <div className="space-y-4">
-          <p className="text-dark-400">
-            Send a request to join {team.name}. The team captain will review your application.
-          </p>
-          <div>
-            <label className="block text-sm font-medium text-dark-200 mb-2">
-              Your Position
-            </label>
-            <select
-              className="input"
-              value={selectedPosition}
-              onChange={(e) => setSelectedPosition(e.target.value)}
-            >
-              <option value="">Select your position</option>
-              <option value="goalkeeper">Goalkeeper</option>
-              <option value="defender">Defender</option>
-              <option value="midfielder">Midfielder</option>
-              <option value="striker">Striker</option>
-            </select>
+      {showJoinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setShowJoinModal(false)} />
+          <div className="relative w-full max-w-md bg-[#0d1219] border border-[#1c2430] rounded-xl p-6">
+            <h2 className="text-xl font-bold text-white mb-2">Join {team.name}</h2>
+            <p className="text-sm text-[#64748b] mb-6">
+              Send a request to join. The team captain will review your application.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-[#64748b] uppercase tracking-wider mb-2">
+                  Your Position
+                </label>
+                <select
+                  className="w-full px-4 py-3 bg-[#141c28] border border-[#2a3a4d] rounded-lg text-white focus:outline-none focus:border-[#4ade80]/50"
+                  value={selectedPosition}
+                  onChange={(e) => setSelectedPosition(e.target.value)}
+                >
+                  <option value="">Select your position</option>
+                  <option value="goalkeeper">Goalkeeper</option>
+                  <option value="defender">Defender</option>
+                  <option value="midfielder">Midfielder</option>
+                  <option value="striker">Striker</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[#64748b] uppercase tracking-wider mb-2">
+                  Message (Optional)
+                </label>
+                <textarea
+                  className="w-full px-4 py-3 bg-[#141c28] border border-[#2a3a4d] rounded-lg text-white placeholder-[#64748b] focus:outline-none focus:border-[#4ade80]/50 min-h-[100px] resize-none"
+                  placeholder="Tell the captain about yourself..."
+                  value={joinMessage}
+                  onChange={(e) => setJoinMessage(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowJoinModal(false)}
+                className="flex-1 py-3 bg-[#141c28] text-white rounded-lg border border-[#2a3a4d] hover:bg-[#1c2430] transition-all font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleJoinRequest}
+                disabled={isRequesting}
+                className="flex-1 py-3 bg-[#1a5f2a] text-[#4ade80] rounded-lg border border-[#22c55e]/30 hover:bg-[#22723a] transition-all font-medium disabled:opacity-50"
+              >
+                {isRequesting ? 'Sending...' : 'Send Request'}
+              </button>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-dark-200 mb-2">
-              Message (Optional)
-            </label>
-            <textarea
-              className="input min-h-[100px] resize-none"
-              placeholder="Tell the captain about yourself..."
-              value={joinMessage}
-              onChange={(e) => setJoinMessage(e.target.value)}
-            />
-          </div>
-          <Modal.Actions>
-            <Button variant="secondary" onClick={() => setShowJoinModal(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={handleJoinRequest} isLoading={isRequesting}>
-              Send Request
-            </Button>
-          </Modal.Actions>
         </div>
-      </Modal>
+      )}
     </div>
   );
 };

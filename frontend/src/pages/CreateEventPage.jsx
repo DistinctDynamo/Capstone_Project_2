@@ -10,13 +10,11 @@ import {
   FiMapPin,
   FiUsers,
   FiDollarSign,
-  FiFileText,
   FiArrowLeft,
   FiArrowRight,
   FiCheck,
 } from 'react-icons/fi';
 import { GiSoccerBall } from 'react-icons/gi';
-import { Card, Button, Input } from '../components/common';
 
 const eventSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters').max(100, 'Title cannot exceed 100 characters'),
@@ -32,16 +30,32 @@ const eventSchema = z.object({
   description: z.string().min(20, 'Description must be at least 20 characters').max(2000, 'Description cannot exceed 2000 characters'),
 });
 
+const InputField = ({ label, icon: Icon, error, ...props }) => (
+  <div className="space-y-2">
+    <label className="text-xs uppercase tracking-wider text-[#64748b]">{label}</label>
+    <div className="relative">
+      {Icon && (
+        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748b]" />
+      )}
+      <input
+        className={`w-full bg-[#141c28] border ${error ? 'border-[#ef4444]' : 'border-[#2a3a4d]'} rounded-lg ${Icon ? 'pl-10' : 'pl-4'} pr-4 py-3 text-white placeholder-[#64748b] focus:outline-none focus:border-[#22c55e] transition-colors`}
+        {...props}
+      />
+    </div>
+    {error && <p className="text-xs text-[#ef4444]">{error}</p>}
+  </div>
+);
+
 const CreateEventPage = () => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
 
   const steps = [
-    { id: 1, title: 'Basic Info', icon: FiFileText },
-    { id: 2, title: 'Date & Time', icon: FiCalendar },
-    { id: 3, title: 'Location', icon: FiMapPin },
-    { id: 4, title: 'Details', icon: GiSoccerBall },
+    { id: 1, title: 'Basic Info' },
+    { id: 2, title: 'Date & Time' },
+    { id: 3, title: 'Location' },
+    { id: 4, title: 'Details' },
   ];
 
   const {
@@ -69,36 +83,24 @@ const CreateEventPage = () => {
 
   const handleNext = async () => {
     let fieldsToValidate = [];
-    if (currentStep === 1) {
-      fieldsToValidate = ['title', 'event_type'];
-    } else if (currentStep === 2) {
-      fieldsToValidate = ['date', 'start_time', 'end_time'];
-    } else if (currentStep === 3) {
-      fieldsToValidate = ['location_name', 'address'];
-    }
+    if (currentStep === 1) fieldsToValidate = ['title', 'event_type'];
+    else if (currentStep === 2) fieldsToValidate = ['date', 'start_time', 'end_time'];
+    else if (currentStep === 3) fieldsToValidate = ['location_name', 'address'];
 
     const isValid = await trigger(fieldsToValidate);
-    if (isValid) {
-      setCurrentStep((prev) => prev + 1);
-    }
+    if (isValid) setCurrentStep((prev) => prev + 1);
   };
 
-  const handleBack = () => {
-    setCurrentStep((prev) => prev - 1);
-  };
+  const handleBack = () => setCurrentStep((prev) => prev - 1);
 
   const onSubmit = async (data) => {
     setIsSubmitting(true);
     try {
-      // Transform data to match backend expected format
       const eventData = {
         title: data.title,
         description: data.description,
         event_type: data.event_type,
-        location: {
-          name: data.location_name,
-          address: data.address,
-        },
+        location: { name: data.location_name, address: data.address },
         date: data.date,
         start_time: data.start_time,
         end_time: data.end_time,
@@ -107,7 +109,6 @@ const CreateEventPage = () => {
         skill_level: data.skill_level,
       };
 
-      // Import eventsAPI and make the actual API call
       const { eventsAPI } = await import('../api/events');
       await eventsAPI.create(eventData);
       toast.success('Event created successfully!');
@@ -136,289 +137,267 @@ const CreateEventPage = () => {
   ];
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <button
-          onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-2 text-dark-400 hover:text-white mb-4 transition-colors"
-        >
-          <FiArrowLeft />
-          Back
-        </button>
-        <h1 className="text-3xl font-display font-bold text-white mb-2">
-          Create <span className="gradient-text">Event</span>
-        </h1>
-        <p className="text-dark-400">
-          Organize a game and invite players from the community.
-        </p>
-      </div>
-
-      {/* Progress Steps */}
-      <div className="flex items-center justify-between mb-8 px-4">
-        {steps.map((step, index) => (
-          <div key={step.id} className="flex items-center">
-            <div className="flex flex-col items-center">
-              <div
-                className={`
-                  w-12 h-12 rounded-full flex items-center justify-center font-semibold
-                  transition-all duration-300
-                  ${
-                    currentStep > step.id
-                      ? 'bg-primary-500 text-white'
-                      : currentStep === step.id
-                      ? 'bg-primary-500/20 text-primary-400 border-2 border-primary-500'
-                      : 'bg-dark-800 text-dark-400 border border-dark-700'
-                  }
-                `}
-              >
-                {currentStep > step.id ? <FiCheck size={20} /> : <step.icon size={20} />}
-              </div>
-              <p className={`mt-2 text-xs font-medium hidden sm:block ${
-                currentStep >= step.id ? 'text-white' : 'text-dark-400'
-              }`}>
-                {step.title}
-              </p>
-            </div>
-            {index < steps.length - 1 && (
-              <div className={`w-12 sm:w-24 h-0.5 mx-2 ${
-                currentStep > step.id ? 'bg-primary-500' : 'bg-dark-700'
-              }`} />
-            )}
+    <div className="min-h-screen bg-[#0a0e14]">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <button
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-2 text-[#64748b] hover:text-white mb-4 transition-colors"
+          >
+            <FiArrowLeft className="w-4 h-4" />
+            <span className="text-sm">Back</span>
+          </button>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-2 h-2 rounded-full bg-[#a855f7] animate-pulse" />
+            <h1 className="text-2xl font-bold text-white tracking-tight">CREATE EVENT</h1>
           </div>
-        ))}
-      </div>
+          <p className="text-[#64748b] text-sm">Organize a game and invite players from the community</p>
+        </div>
 
-      {/* Form */}
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <Card className="mb-8">
-          {/* Step 1: Basic Info */}
-          {currentStep === 1 && (
-            <div className="space-y-6 animate-fade-in">
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-2">
-                  Event Title
-                </label>
-                <Input
-                  placeholder="e.g., Saturday Morning Pickup"
-                  error={errors.title?.message}
-                  {...register('title')}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-4">
-                  Event Type
-                </label>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {eventTypes.map((type) => (
-                    <label
-                      key={type.value}
-                      className={`
-                        relative flex items-start p-4 rounded-xl border cursor-pointer
-                        transition-all duration-200
-                        ${
-                          watch('event_type') === type.value
-                            ? 'bg-primary-500/10 border-primary-500'
-                            : 'bg-dark-800/50 border-dark-700 hover:border-dark-600'
-                        }
-                      `}
-                    >
-                      <input
-                        type="radio"
-                        value={type.value}
-                        className="sr-only"
-                        {...register('event_type')}
-                      />
-                      <div className="flex-1">
-                        <p className="font-medium text-white">{type.label}</p>
-                        <p className="text-sm text-dark-400">{type.description}</p>
-                      </div>
-                      {watch('event_type') === type.value && (
-                        <FiCheck className="w-5 h-5 text-primary-400" />
-                      )}
-                    </label>
-                  ))}
+        {/* Progress Steps */}
+        <div className="bg-[#0d1219] border border-[#1c2430] rounded-lg p-4 mb-6">
+          <div className="flex items-center justify-between">
+            {steps.map((step, index) => (
+              <div key={step.id} className="flex items-center">
+                <div className="flex flex-col items-center">
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm transition-all ${
+                      currentStep > step.id
+                        ? 'bg-[#22c55e] text-white'
+                        : currentStep === step.id
+                        ? 'bg-[#a855f7]/20 text-[#c084fc] border-2 border-[#a855f7]'
+                        : 'bg-[#141c28] text-[#64748b] border border-[#2a3a4d]'
+                    }`}
+                  >
+                    {currentStep > step.id ? <FiCheck className="w-5 h-5" /> : step.id}
+                  </div>
+                  <p className={`mt-2 text-xs font-medium hidden sm:block ${
+                    currentStep >= step.id ? 'text-white' : 'text-[#64748b]'
+                  }`}>
+                    {step.title}
+                  </p>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Date & Time */}
-          {currentStep === 2 && (
-            <div className="space-y-6 animate-fade-in">
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-2">
-                  Date
-                </label>
-                <Input
-                  type="date"
-                  leftIcon={<FiCalendar size={18} />}
-                  error={errors.date?.message}
-                  {...register('date')}
-                />
-              </div>
-
-              <div className="grid sm:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-2">
-                    Start Time
-                  </label>
-                  <Input
-                    type="time"
-                    leftIcon={<FiClock size={18} />}
-                    error={errors.start_time?.message}
-                    {...register('start_time')}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-2">
-                    End Time
-                  </label>
-                  <Input
-                    type="time"
-                    leftIcon={<FiClock size={18} />}
-                    error={errors.end_time?.message}
-                    {...register('end_time')}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Location */}
-          {currentStep === 3 && (
-            <div className="space-y-6 animate-fade-in">
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-2">
-                  Venue Name
-                </label>
-                <Input
-                  placeholder="e.g., High Park Soccer Field"
-                  leftIcon={<FiMapPin size={18} />}
-                  error={errors.location_name?.message}
-                  {...register('location_name')}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-2">
-                  Full Address
-                </label>
-                <Input
-                  placeholder="e.g., 1873 Bloor St W, Toronto, ON"
-                  error={errors.address?.message}
-                  {...register('address')}
-                />
-              </div>
-
-              <div className="p-4 bg-dark-800/50 rounded-xl border border-dark-700">
-                <p className="text-sm text-dark-300">
-                  <span className="text-primary-400 font-medium">Tip:</span> Be specific with the
-                  address so players can easily find the location. Include any helpful landmarks
-                  or parking information.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Step 4: Details */}
-          {currentStep === 4 && (
-            <div className="space-y-6 animate-fade-in">
-              <div className="grid sm:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-2">
-                    Max Players
-                  </label>
-                  <Input
-                    type="number"
-                    leftIcon={<FiUsers size={18} />}
-                    error={errors.max_participants?.message}
-                    {...register('max_participants', { valueAsNumber: true })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-2">
-                    Price (CAD)
-                  </label>
-                  <Input
-                    type="number"
-                    leftIcon={<FiDollarSign size={18} />}
-                    placeholder="0 for free"
-                    error={errors.price?.message}
-                    {...register('price', { valueAsNumber: true })}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-4">
-                  Skill Level
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {skillLevels.map((level) => (
-                    <label
-                      key={level.value}
-                      className={`
-                        flex items-center justify-center p-3 rounded-xl border cursor-pointer
-                        transition-all duration-200 text-center
-                        ${
-                          watch('skill_level') === level.value
-                            ? 'bg-primary-500/10 border-primary-500 text-primary-400'
-                            : 'bg-dark-800/50 border-dark-700 text-dark-300 hover:border-dark-600'
-                        }
-                      `}
-                    >
-                      <input
-                        type="radio"
-                        value={level.value}
-                        className="sr-only"
-                        {...register('skill_level')}
-                      />
-                      {level.label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-2">
-                  Description
-                </label>
-                <textarea
-                  className="input min-h-[150px] resize-none"
-                  placeholder="Tell players what to expect. Include any rules, what to bring, parking info, etc."
-                  {...register('description')}
-                />
-                {errors.description && (
-                  <p className="mt-2 text-sm text-red-400">{errors.description.message}</p>
+                {index < steps.length - 1 && (
+                  <div className={`w-12 sm:w-20 h-0.5 mx-2 ${
+                    currentStep > step.id ? 'bg-[#22c55e]' : 'bg-[#2a3a4d]'
+                  }`} />
                 )}
               </div>
-            </div>
-          )}
-        </Card>
-
-        {/* Navigation Buttons */}
-        <div className="flex gap-4">
-          {currentStep > 1 && (
-            <Button type="button" variant="secondary" onClick={handleBack} className="flex-1">
-              <FiArrowLeft />
-              Back
-            </Button>
-          )}
-          {currentStep < 4 ? (
-            <Button type="button" variant="primary" onClick={handleNext} className="flex-1">
-              Continue
-              <FiArrowRight />
-            </Button>
-          ) : (
-            <Button type="submit" variant="primary" isLoading={isSubmitting} className="flex-1">
-              <FiCheck />
-              Create Event
-            </Button>
-          )}
+            ))}
+          </div>
         </div>
-      </form>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <div className="bg-[#0d1219] border border-[#1c2430] rounded-lg overflow-hidden mb-6">
+            <div className="px-4 py-3 border-b border-[#1c2430] flex items-center justify-between">
+              <span className="text-xs uppercase tracking-wider text-[#64748b]">Step {currentStep} of 4</span>
+              <span className="text-xs text-[#a855f7] uppercase tracking-wider">{steps[currentStep - 1].title}</span>
+            </div>
+
+            <div className="p-6">
+              {/* Step 1: Basic Info */}
+              {currentStep === 1 && (
+                <div className="space-y-6">
+                  <InputField
+                    label="Event Title"
+                    placeholder="e.g., Saturday Morning Pickup"
+                    error={errors.title?.message}
+                    {...register('title')}
+                  />
+                  <div>
+                    <label className="block text-xs uppercase tracking-wider text-[#64748b] mb-4">Event Type</label>
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      {eventTypes.map((type) => (
+                        <label
+                          key={type.value}
+                          className={`relative flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
+                            watch('event_type') === type.value
+                              ? 'bg-[#a855f7]/10 border-[#a855f7]/50'
+                              : 'bg-[#141c28] border-[#2a3a4d] hover:border-[#3a4a5d]'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            value={type.value}
+                            className="sr-only"
+                            {...register('event_type')}
+                          />
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            watch('event_type') === type.value
+                              ? 'border-[#a855f7] bg-[#a855f7]'
+                              : 'border-[#2a3a4d]'
+                          }`}>
+                            {watch('event_type') === type.value && (
+                              <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                            )}
+                          </div>
+                          <div>
+                            <p className={`font-medium ${watch('event_type') === type.value ? 'text-[#c084fc]' : 'text-white'}`}>
+                              {type.label}
+                            </p>
+                            <p className="text-xs text-[#64748b]">{type.description}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Date & Time */}
+              {currentStep === 2 && (
+                <div className="space-y-6">
+                  <InputField
+                    label="Date"
+                    type="date"
+                    icon={FiCalendar}
+                    error={errors.date?.message}
+                    {...register('date')}
+                  />
+                  <div className="grid sm:grid-cols-2 gap-6">
+                    <InputField
+                      label="Start Time"
+                      type="time"
+                      icon={FiClock}
+                      error={errors.start_time?.message}
+                      {...register('start_time')}
+                    />
+                    <InputField
+                      label="End Time"
+                      type="time"
+                      icon={FiClock}
+                      error={errors.end_time?.message}
+                      {...register('end_time')}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Location */}
+              {currentStep === 3 && (
+                <div className="space-y-6">
+                  <InputField
+                    label="Venue Name"
+                    placeholder="e.g., High Park Soccer Field"
+                    icon={FiMapPin}
+                    error={errors.location_name?.message}
+                    {...register('location_name')}
+                  />
+                  <InputField
+                    label="Full Address"
+                    placeholder="e.g., 1873 Bloor St W, Toronto, ON"
+                    error={errors.address?.message}
+                    {...register('address')}
+                  />
+                  <div className="p-4 bg-[#141c28] rounded-lg border border-[#2a3a4d]">
+                    <p className="text-sm text-[#94a3b8]">
+                      <span className="text-[#a855f7] font-medium">Tip:</span> Be specific with the address so players can easily find the location.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 4: Details */}
+              {currentStep === 4 && (
+                <div className="space-y-6">
+                  <div className="grid sm:grid-cols-2 gap-6">
+                    <InputField
+                      label="Max Players"
+                      type="number"
+                      icon={FiUsers}
+                      error={errors.max_participants?.message}
+                      {...register('max_participants', { valueAsNumber: true })}
+                    />
+                    <InputField
+                      label="Price (CAD)"
+                      type="number"
+                      icon={FiDollarSign}
+                      placeholder="0 for free"
+                      error={errors.price?.message}
+                      {...register('price', { valueAsNumber: true })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-wider text-[#64748b] mb-4">Skill Level</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {skillLevels.map((level) => (
+                        <label
+                          key={level.value}
+                          className={`flex items-center justify-center p-3 rounded-lg border cursor-pointer text-center text-sm transition-all ${
+                            watch('skill_level') === level.value
+                              ? 'bg-[#a855f7]/10 border-[#a855f7]/50 text-[#c084fc]'
+                              : 'bg-[#141c28] border-[#2a3a4d] text-[#94a3b8] hover:border-[#3a4a5d]'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            value={level.value}
+                            className="sr-only"
+                            {...register('skill_level')}
+                          />
+                          {level.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs uppercase tracking-wider text-[#64748b]">Description</label>
+                    <textarea
+                      className="w-full bg-[#141c28] border border-[#2a3a4d] rounded-lg px-4 py-3 text-white placeholder-[#64748b] focus:outline-none focus:border-[#22c55e] transition-colors min-h-[150px] resize-none"
+                      placeholder="Tell players what to expect. Include any rules, what to bring, parking info, etc."
+                      {...register('description')}
+                    />
+                    {errors.description && (
+                      <p className="text-xs text-[#ef4444]">{errors.description.message}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Navigation Buttons */}
+          <div className="flex gap-4">
+            {currentStep > 1 && (
+              <button
+                type="button"
+                onClick={handleBack}
+                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-[#141c28] border border-[#2a3a4d] text-white rounded-lg font-medium hover:bg-[#1c2430] transition-colors"
+              >
+                <FiArrowLeft className="w-4 h-4" />
+                Back
+              </button>
+            )}
+            {currentStep < 4 ? (
+              <button
+                type="button"
+                onClick={handleNext}
+                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-[#a855f7] text-white rounded-lg font-medium hover:bg-[#9333ea] transition-colors shadow-lg shadow-[#a855f7]/25"
+              >
+                Continue
+                <FiArrowRight className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-[#22c55e] text-white rounded-lg font-medium hover:bg-[#16a34a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#22c55e]/25"
+              >
+                {isSubmitting ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <FiCheck className="w-5 h-5" />
+                    Create Event
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
     </div>
   );
 };

@@ -2,6 +2,7 @@ const express = require('express');
 const Event = require('../models/events');
 const Team = require('../models/teams');
 const User = require('../models/user');
+const Classified = require('../models/classified');
 const Notification = require('../models/notification');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -24,14 +25,18 @@ router.get('/stats', async (req, res, next) => {
       totalTeams,
       pendingTeams,
       totalEvents,
-      pendingEvents
+      pendingEvents,
+      totalClassifieds,
+      pendingClassifieds
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ is_active: true }),
       Team.countDocuments(),
       Team.countDocuments({ approval_status: 'pending' }),
       Event.countDocuments(),
-      Event.countDocuments({ approval_status: 'pending' })
+      Event.countDocuments({ approval_status: 'pending' }),
+      Classified.countDocuments(),
+      Classified.countDocuments({ approval_status: 'pending' })
     ]);
 
     res.json({
@@ -39,7 +44,8 @@ router.get('/stats', async (req, res, next) => {
       data: {
         users: { total: totalUsers, active: activeUsers },
         teams: { total: totalTeams, pending: pendingTeams },
-        events: { total: totalEvents, pending: pendingEvents }
+        events: { total: totalEvents, pending: pendingEvents },
+        classifieds: { total: totalClassifieds, pending: pendingClassifieds }
       }
     });
   } catch (error) {
@@ -253,6 +259,232 @@ router.put('/teams/:id/reject', async (req, res, next) => {
       success: true,
       message: 'Team rejected',
       data: { team }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==================== CLASSIFIED APPROVAL ====================
+
+// @route   GET /api/admin/classifieds/pending
+// @desc    Get classifieds pending approval
+// @access  Admin only
+router.get('/classifieds/pending', async (req, res, next) => {
+  try {
+    const classifieds = await Classified.find({ approval_status: 'pending' })
+      .populate('creator', 'username first_name last_name email')
+      .sort({ created_at: -1 });
+
+    res.json({
+      success: true,
+      data: { classifieds }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// @route   PUT /api/admin/classifieds/:id/approve
+// @desc    Approve a classified
+// @access  Admin only
+router.put('/classifieds/:id/approve', async (req, res, next) => {
+  try {
+    const classified = await Classified.findById(req.params.id);
+
+    if (!classified) {
+      return res.status(404).json({
+        success: false,
+        message: 'Classified not found'
+      });
+    }
+
+    classified.approval_status = 'approved';
+    classified.approved_by = req.user._id;
+    classified.approved_at = new Date();
+    await classified.save();
+
+    // Notify the classified creator
+    await Notification.create({
+      user: classified.creator,
+      type: 'classified_approved',
+      title: 'Listing Approved',
+      message: `Your listing "${classified.title}" has been approved and is now visible to users.`,
+      link: `/classifieds/${classified._id}`,
+      reference: { model: 'Classified', id: classified._id }
+    });
+
+    res.json({
+      success: true,
+      message: 'Classified approved successfully',
+      data: { classified }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// @route   PUT /api/admin/classifieds/:id/reject
+// @desc    Reject a classified
+// @access  Admin only
+router.put('/classifieds/:id/reject', async (req, res, next) => {
+  try {
+    const { reason } = req.body;
+
+    if (!reason) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rejection reason is required'
+      });
+    }
+
+    const classified = await Classified.findById(req.params.id);
+
+    if (!classified) {
+      return res.status(404).json({
+        success: false,
+        message: 'Classified not found'
+      });
+    }
+
+    classified.approval_status = 'rejected';
+    classified.rejection_reason = reason;
+    await classified.save();
+
+    // Notify the classified creator
+    await Notification.create({
+      user: classified.creator,
+      type: 'classified_rejected',
+      title: 'Listing Not Approved',
+      message: `Your listing "${classified.title}" was not approved. Reason: ${reason}`,
+      link: `/classifieds/${classified._id}`,
+      reference: { model: 'Classified', id: classified._id }
+    });
+
+    res.json({
+      success: true,
+      message: 'Classified rejected',
+      data: { classified }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==================== TEAM MANAGEMENT ====================
+
+// @route   GET /api/admin/teams
+// @desc    Get all teams with filters
+// @access  Admin only
+router.get('/teams', async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+
+    const filter = {};
+
+    if (req.query.approval_status) {
+      filter.approval_status = req.query.approval_status;
+    }
+
+    if (req.query.search) {
+      filter.team_name = { $regex: req.query.search, $options: 'i' };
+    }
+
+    const teams = await Team.find(filter)
+      .populate('owner', 'username first_name last_name email')
+      .populate('members.user', 'username first_name last_name')
+      .skip(skip)
+      .limit(limit)
+      .sort({ created_at: -1 });
+
+    const total = await Team.countDocuments(filter);
+
+    res.json({
+      success: true,
+      data: {
+        teams,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit)
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// @route   PUT /api/admin/teams/:id
+// @desc    Update team details
+// @access  Admin only
+router.put('/teams/:id', async (req, res, next) => {
+  try {
+    const { team_name, description, skill_level, max_members, is_recruiting, approval_status } = req.body;
+
+    const team = await Team.findById(req.params.id);
+
+    if (!team) {
+      return res.status(404).json({
+        success: false,
+        message: 'Team not found'
+      });
+    }
+
+    // Update allowed fields
+    if (team_name) team.team_name = team_name;
+    if (description !== undefined) team.description = description;
+    if (skill_level) team.skill_level = skill_level;
+    if (max_members) team.max_members = max_members;
+    if (is_recruiting !== undefined) team.is_recruiting = is_recruiting;
+    if (approval_status) {
+      team.approval_status = approval_status;
+      if (approval_status === 'approved') {
+        team.approved_by = req.user._id;
+        team.approved_at = new Date();
+      }
+    }
+
+    await team.save();
+
+    res.json({
+      success: true,
+      message: 'Team updated successfully',
+      data: { team }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// @route   DELETE /api/admin/teams/:id
+// @desc    Delete a team
+// @access  Admin only
+router.delete('/teams/:id', async (req, res, next) => {
+  try {
+    const team = await Team.findById(req.params.id);
+
+    if (!team) {
+      return res.status(404).json({
+        success: false,
+        message: 'Team not found'
+      });
+    }
+
+    // Remove team reference from all members
+    await User.updateMany(
+      { team: team._id },
+      { $unset: { team: 1, team_role: 1 } }
+    );
+
+    await Team.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: 'Team deleted successfully'
     });
   } catch (error) {
     next(error);

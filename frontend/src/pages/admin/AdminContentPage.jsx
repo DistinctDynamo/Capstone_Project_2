@@ -5,7 +5,6 @@ import {
   FiCalendar,
   FiShoppingBag,
   FiSearch,
-  FiFlag,
   FiTrash2,
   FiEye,
   FiUser,
@@ -13,8 +12,10 @@ import {
   FiMapPin,
   FiDollarSign,
   FiAlertTriangle,
+  FiExternalLink,
 } from 'react-icons/fi';
-import { Card, Badge, Loading, Modal, Button, Input, EmptyState } from '../../components/common';
+import { GiWhistle } from 'react-icons/gi';
+import { Loading, Modal, Button } from '../../components/common';
 import { eventsAPI, classifiedsAPI } from '../../api';
 
 const AdminContentPage = () => {
@@ -73,12 +74,12 @@ const AdminContentPage = () => {
     try {
       await classifiedsAPI.delete(selectedItem._id);
       setClassifieds((prev) => prev.filter((c) => c._id !== selectedItem._id));
-      toast.success('Classified deleted successfully');
+      toast.success('Listing deleted successfully');
       setDeleteModalOpen(false);
       setSelectedItem(null);
     } catch (error) {
       console.error('Error deleting classified:', error);
-      toast.error('Failed to delete classified');
+      toast.error('Failed to delete listing');
     } finally {
       setActionLoading(false);
     }
@@ -117,235 +118,121 @@ const AdminContentPage = () => {
   });
 
   const tabs = [
-    { id: 'events', label: 'Events', count: filteredEvents.length, icon: FiCalendar },
-    { id: 'classifieds', label: 'Classifieds', count: filteredClassifieds.length, icon: FiShoppingBag },
+    { id: 'events', label: 'Events', count: filteredEvents.length, icon: FiCalendar, color: '#a855f7' },
+    { id: 'classifieds', label: 'Listings', count: filteredClassifieds.length, icon: FiShoppingBag, color: '#f59e0b' },
   ];
 
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'approved':
-        return <Badge variant="success" size="sm">Approved</Badge>;
-      case 'pending':
-        return <Badge variant="warning" size="sm">Pending</Badge>;
-      case 'rejected':
-        return <Badge variant="danger" size="sm">Rejected</Badge>;
-      case 'active':
-        return <Badge variant="success" size="sm">Active</Badge>;
-      case 'sold':
-        return <Badge variant="gray" size="sm">Sold</Badge>;
-      default:
-        return <Badge variant="gray" size="sm">{status || 'Unknown'}</Badge>;
-    }
-  };
+  const activeItems = activeTab === 'events' ? filteredEvents : filteredClassifieds;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Loading size="lg" text="Loading content..." />
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold text-white mb-2">
-          Content Moderation
-        </h1>
-        <p className="text-dark-400">
-          Review and moderate events and classifieds on the platform
-        </p>
-      </div>
+    <div className="min-h-screen bg-[#0a0e14]">
+      {/* Page Header */}
+      <div className="bg-[#0d1219] border-b border-[#1c2430]">
+        <div className="max-w-7xl mx-auto px-4 py-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-[#a855f7]/20 rounded-lg flex items-center justify-center">
+                <GiWhistle className="w-6 h-6 text-[#a855f7]" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-white">Content Moderation</h1>
+                <p className="text-[#64748b] text-sm">Review and manage platform content</p>
+              </div>
+            </div>
 
-      {/* Search and Filters */}
-      <Card className="mb-6">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <Input
-              placeholder="Search content by title, description, or creator..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              leftIcon={<FiSearch className="w-5 h-5" />}
-            />
+            {/* Quick Stats */}
+            <div className="hidden md:flex items-center gap-6">
+              <StatBadge label="Events" value={events.length} color="#a855f7" />
+              <StatBadge label="Listings" value={classifieds.length} color="#f59e0b" />
+            </div>
           </div>
         </div>
-      </Card>
-
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`
-              flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all
-              ${
-                activeTab === tab.id
-                  ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
-                  : 'bg-dark-800 text-dark-300 hover:text-white border border-dark-700 hover:border-dark-600'
-              }
-            `}
-          >
-            <tab.icon className="w-5 h-5" />
-            {tab.label}
-            <Badge variant="gray" size="sm">
-              {tab.count}
-            </Badge>
-          </button>
-        ))}
       </div>
 
-      {/* Content */}
-      {isLoading ? (
-        <div className="min-h-[40vh] flex items-center justify-center">
-          <Loading size="lg" text="Loading content..." />
-        </div>
-      ) : (
-        <>
-          {/* Events Tab */}
-          {activeTab === 'events' && (
-            <div className="space-y-4">
-              {filteredEvents.length === 0 ? (
-                <EmptyState
-                  icon={FiCalendar}
-                  title="No events found"
-                  description="No events match your search criteria"
-                />
-              ) : (
-                filteredEvents.map((event) => (
-                  <Card key={event._id} className="hover:border-dark-600 transition-colors">
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                      <div className="flex items-start gap-4 flex-1 min-w-0">
-                        <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
-                          <FiCalendar className="w-7 h-7 text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <Link
-                              to={`/events/${event._id}`}
-                              className="text-lg font-semibold text-white hover:text-primary-400 transition-colors"
-                            >
-                              {event.title}
-                            </Link>
-                            {getStatusBadge(event.approval_status)}
-                          </div>
-                          <p className="text-dark-400 text-sm mb-2 line-clamp-1">
-                            {event.description || 'No description provided'}
-                          </p>
-                          <div className="flex flex-wrap items-center gap-4 text-sm text-dark-400">
-                            <span className="flex items-center gap-1">
-                              <FiUser className="w-4 h-4" />
-                              {event.creator?.first_name} {event.creator?.last_name}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <FiCalendar className="w-4 h-4" />
-                              {new Date(event.date || event.start_date).toLocaleDateString()}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <FiMapPin className="w-4 h-4" />
-                              {event.location?.name || event.location || 'TBD'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openPreview(event, 'event')}
-                          leftIcon={<FiEye />}
-                        >
-                          Preview
-                        </Button>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          onClick={() => openDeleteModal(event, 'event')}
-                          leftIcon={<FiTrash2 />}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))
-              )}
+      {/* Tabs & Search */}
+      <div className="bg-[#0d1219] border-b border-[#1c2430]">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-4">
+            {/* Tabs */}
+            <div className="flex">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`relative flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${
+                    activeTab === tab.id
+                      ? 'text-white'
+                      : 'text-[#64748b] hover:text-white'
+                  }`}
+                >
+                  <tab.icon className="w-4 h-4" style={{ color: activeTab === tab.id ? tab.color : undefined }} />
+                  {tab.label}
+                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                    activeTab === tab.id
+                      ? 'bg-[#a855f7]/20 text-[#a855f7]'
+                      : 'bg-[#374151] text-[#9ca3af]'
+                  }`}>
+                    {tab.count}
+                  </span>
+                  {activeTab === tab.id && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: tab.color }} />
+                  )}
+                </button>
+              ))}
             </div>
-          )}
 
-          {/* Classifieds Tab */}
-          {activeTab === 'classifieds' && (
-            <div className="space-y-4">
-              {filteredClassifieds.length === 0 ? (
-                <EmptyState
-                  icon={FiShoppingBag}
-                  title="No classifieds found"
-                  description="No classifieds match your search criteria"
-                />
+            {/* Search */}
+            <div className="relative w-full md:w-72">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748b]" />
+              <input
+                type="text"
+                placeholder="Search content..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-[#141c28] border border-[#2a3a4d] rounded-lg text-white text-sm placeholder:text-[#4a5568] focus:outline-none focus:border-[#a855f7]"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Content List */}
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        {activeItems.length === 0 ? (
+          <div className="bg-[#0d1219] border border-[#1c2430] rounded-lg py-16 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#1a2332] flex items-center justify-center">
+              {activeTab === 'events' ? (
+                <FiCalendar className="w-8 h-8 text-[#4a5568]" />
               ) : (
-                filteredClassifieds.map((classified) => (
-                  <Card key={classified._id} className="hover:border-dark-600 transition-colors">
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                      <div className="flex items-start gap-4 flex-1 min-w-0">
-                        {classified.images && classified.images.length > 0 ? (
-                          <img
-                            src={classified.images[0]}
-                            alt={classified.title}
-                            className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
-                          />
-                        ) : (
-                          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-accent-500 to-orange-500 flex items-center justify-center flex-shrink-0">
-                            <FiShoppingBag className="w-7 h-7 text-white" />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <Link
-                              to={`/classifieds/${classified._id}`}
-                              className="text-lg font-semibold text-white hover:text-primary-400 transition-colors"
-                            >
-                              {classified.title}
-                            </Link>
-                            {getStatusBadge(classified.status)}
-                          </div>
-                          <p className="text-dark-400 text-sm mb-2 line-clamp-1">
-                            {classified.description || 'No description provided'}
-                          </p>
-                          <div className="flex flex-wrap items-center gap-4 text-sm text-dark-400">
-                            <span className="flex items-center gap-1">
-                              <FiUser className="w-4 h-4" />
-                              {classified.seller?.first_name} {classified.seller?.last_name}
-                            </span>
-                            <span className="flex items-center gap-1 text-primary-400 font-medium">
-                              <FiDollarSign className="w-4 h-4" />
-                              ${classified.price || 0}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <FiClock className="w-4 h-4" />
-                              {new Date(classified.created_at).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openPreview(classified, 'classified')}
-                          leftIcon={<FiEye />}
-                        >
-                          Preview
-                        </Button>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          onClick={() => openDeleteModal(classified, 'classified')}
-                          leftIcon={<FiTrash2 />}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))
+                <FiShoppingBag className="w-8 h-8 text-[#4a5568]" />
               )}
             </div>
-          )}
-        </>
-      )}
+            <p className="text-[#64748b]">No {activeTab} found</p>
+            <p className="text-[#4a5568] text-sm mt-1">Try adjusting your search</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {activeItems.map((item, idx) => (
+              <ContentCard
+                key={item._id}
+                item={item}
+                type={activeTab === 'events' ? 'event' : 'classified'}
+                index={idx}
+                onPreview={() => openPreview(item, activeTab === 'events' ? 'event' : 'classified')}
+                onDelete={() => openDeleteModal(item, activeTab === 'events' ? 'event' : 'classified')}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Preview Modal */}
       <Modal
@@ -354,109 +241,10 @@ const AdminContentPage = () => {
           setPreviewModalOpen(false);
           setSelectedItem(null);
         }}
-        title={selectedItem?.type === 'event' ? 'Event Preview' : 'Classified Preview'}
+        title={selectedItem?.type === 'event' ? 'Event Preview' : 'Listing Preview'}
         size="lg"
       >
-        {selectedItem?.type === 'event' && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                <FiCalendar className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h3 className="text-xl font-semibold text-white">
-                  {selectedItem.title}
-                </h3>
-                <p className="text-dark-400">
-                  Created by {selectedItem.creator?.first_name} {selectedItem.creator?.last_name}
-                </p>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm text-dark-400">Description</label>
-                <p className="text-white mt-1">
-                  {selectedItem.description || 'No description provided'}
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm text-dark-400">Date</label>
-                  <p className="text-white mt-1">
-                    {new Date(selectedItem.date || selectedItem.start_date).toLocaleDateString()}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm text-dark-400">Status</label>
-                  <div className="mt-1">
-                    {getStatusBadge(selectedItem.approval_status)}
-                  </div>
-                </div>
-              </div>
-              <div>
-                <label className="text-sm text-dark-400">Location</label>
-                <p className="text-white mt-1">
-                  {selectedItem.location?.name || selectedItem.location || 'TBD'}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {selectedItem?.type === 'classified' && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              {selectedItem.images && selectedItem.images.length > 0 ? (
-                <img
-                  src={selectedItem.images[0]}
-                  alt={selectedItem.title}
-                  className="w-16 h-16 rounded-xl object-cover"
-                />
-              ) : (
-                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-accent-500 to-orange-500 flex items-center justify-center">
-                  <FiShoppingBag className="w-8 h-8 text-white" />
-                </div>
-              )}
-              <div>
-                <h3 className="text-xl font-semibold text-white">
-                  {selectedItem.title}
-                </h3>
-                <p className="text-dark-400">
-                  Posted by {selectedItem.seller?.first_name} {selectedItem.seller?.last_name}
-                </p>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm text-dark-400">Description</label>
-                <p className="text-white mt-1">
-                  {selectedItem.description || 'No description provided'}
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm text-dark-400">Price</label>
-                  <p className="text-primary-400 font-semibold mt-1">
-                    ${selectedItem.price || 0}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm text-dark-400">Category</label>
-                  <p className="text-white mt-1 capitalize">
-                    {selectedItem.category || 'Not specified'}
-                  </p>
-                </div>
-              </div>
-              <div>
-                <label className="text-sm text-dark-400">Condition</label>
-                <p className="text-white mt-1 capitalize">
-                  {selectedItem.condition || 'Not specified'}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
+        {selectedItem && <PreviewContent item={selectedItem} />}
         <Modal.Actions>
           <Button
             variant="ghost"
@@ -469,8 +257,9 @@ const AdminContentPage = () => {
           </Button>
           <Link
             to={`/${selectedItem?.type === 'event' ? 'events' : 'classifieds'}/${selectedItem?._id}`}
-            className="btn-primary"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#3b82f6] text-white hover:bg-[#2563eb] transition-colors text-sm font-medium"
           >
+            <FiExternalLink className="w-4 h-4" />
             View Full Page
           </Link>
         </Modal.Actions>
@@ -487,14 +276,14 @@ const AdminContentPage = () => {
         size="sm"
       >
         <div className="space-y-4">
-          <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20">
-            <FiAlertTriangle className="w-6 h-6 text-red-400 flex-shrink-0" />
-            <p className="text-red-300 text-sm">
+          <div className="flex items-center gap-3 p-3 bg-[#dc2626]/10 border border-[#dc2626]/20 rounded-lg">
+            <FiAlertTriangle className="w-5 h-5 text-[#dc2626] flex-shrink-0" />
+            <p className="text-[#94a3b8] text-sm">
               This action cannot be undone. The content will be permanently removed.
             </p>
           </div>
-          <p className="text-dark-300">
-            Are you sure you want to delete{' '}
+          <p className="text-[#94a3b8]">
+            Delete{' '}
             <span className="text-white font-medium">
               "{selectedItem?.title}"
             </span>
@@ -520,12 +309,185 @@ const AdminContentPage = () => {
             }
             isLoading={actionLoading}
           >
-            Delete {selectedItem?.type === 'event' ? 'Event' : 'Classified'}
+            Delete {selectedItem?.type === 'event' ? 'Event' : 'Listing'}
           </Button>
         </Modal.Actions>
       </Modal>
     </div>
   );
 };
+
+// === HELPER COMPONENTS ===
+
+const StatBadge = ({ label, value, color }) => (
+  <div className="text-center">
+    <p className="text-2xl font-bold" style={{ color }}>{value}</p>
+    <p className="text-[#4a5568] text-xs uppercase tracking-wide">{label}</p>
+  </div>
+);
+
+const ContentCard = ({ item, type, index, onPreview, onDelete }) => {
+  const isEvent = type === 'event';
+  const Icon = isEvent ? FiCalendar : FiShoppingBag;
+  const color = isEvent ? '#a855f7' : '#f59e0b';
+
+  const getCreator = () => {
+    if (isEvent) return `${item.creator?.first_name || ''} ${item.creator?.last_name || ''}`.trim() || 'Unknown';
+    return `${item.seller?.first_name || ''} ${item.seller?.last_name || ''}`.trim() || 'Unknown';
+  };
+
+  const getStatus = () => {
+    const status = item.approval_status || item.status || 'active';
+    const styles = {
+      approved: 'bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20',
+      active: 'bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20',
+      pending: 'bg-[#f59e0b]/10 text-[#f59e0b] border-[#f59e0b]/20',
+      rejected: 'bg-[#dc2626]/10 text-[#dc2626] border-[#dc2626]/20',
+      sold: 'bg-[#64748b]/10 text-[#64748b] border-[#64748b]/20',
+    };
+    return (
+      <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide border ${styles[status] || styles.active}`}>
+        {status}
+      </span>
+    );
+  };
+
+  return (
+    <div className={`flex items-center gap-4 p-4 rounded-lg border transition-colors ${
+      index % 2 === 0 ? 'bg-[#0d1219]' : 'bg-[#0f1520]'
+    } border-[#1c2430] hover:border-[#2a3a4d]`}>
+      {/* Icon */}
+      <div className="w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${color}20` }}>
+        <Icon className="w-5 h-5" style={{ color }} />
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap mb-1">
+          <Link
+            to={`/${isEvent ? 'events' : 'classifieds'}/${item._id}`}
+            className="text-white font-medium hover:text-[#3b82f6] transition-colors truncate"
+          >
+            {item.title}
+          </Link>
+          {getStatus()}
+        </div>
+
+        <p className="text-[#64748b] text-sm line-clamp-1 mb-2">
+          {item.description || 'No description'}
+        </p>
+
+        <div className="flex flex-wrap items-center gap-4 text-xs text-[#4a5568]">
+          <span className="flex items-center gap-1">
+            <FiUser className="w-3 h-3" />
+            {getCreator()}
+          </span>
+          {isEvent ? (
+            <>
+              <span className="flex items-center gap-1">
+                <FiCalendar className="w-3 h-3" />
+                {new Date(item.date || item.start_date).toLocaleDateString()}
+              </span>
+              <span className="flex items-center gap-1">
+                <FiMapPin className="w-3 h-3" />
+                {item.location?.name || item.location || 'TBD'}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="flex items-center gap-1 text-[#22c55e]">
+                <FiDollarSign className="w-3 h-3" />
+                ${item.price || 0}
+              </span>
+              <span className="flex items-center gap-1">
+                <FiClock className="w-3 h-3" />
+                {new Date(item.created_at).toLocaleDateString()}
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <button
+          onClick={onPreview}
+          className="p-2 rounded-lg text-[#64748b] hover:text-white hover:bg-[#1c2430] transition-colors"
+          title="Preview"
+        >
+          <FiEye className="w-4 h-4" />
+        </button>
+        <button
+          onClick={onDelete}
+          className="p-2 rounded-lg text-[#64748b] hover:text-[#dc2626] hover:bg-[#dc2626]/10 transition-colors"
+          title="Delete"
+        >
+          <FiTrash2 className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const PreviewContent = ({ item }) => {
+  const isEvent = item.type === 'event';
+  const Icon = isEvent ? FiCalendar : FiShoppingBag;
+  const color = isEvent ? '#a855f7' : '#f59e0b';
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-4 pb-4 border-b border-[#1c2430]">
+        {item.images && item.images.length > 0 ? (
+          <img
+            src={item.images[0]}
+            alt={item.title}
+            className="w-16 h-16 rounded-lg object-cover"
+          />
+        ) : (
+          <div className="w-16 h-16 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}20` }}>
+            <Icon className="w-8 h-8" style={{ color }} />
+          </div>
+        )}
+        <div>
+          <h3 className="text-lg font-bold text-white">{item.title}</h3>
+          <p className="text-[#64748b] text-sm">
+            {isEvent
+              ? `Created by ${item.creator?.first_name} ${item.creator?.last_name}`
+              : `Posted by ${item.seller?.first_name} ${item.seller?.last_name}`}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <DetailBlock label="Description" value={item.description || 'No description provided'} />
+
+        {isEvent ? (
+          <div className="grid grid-cols-2 gap-4">
+            <DetailBlock label="Date" value={new Date(item.date || item.start_date).toLocaleDateString()} />
+            <DetailBlock label="Location" value={item.location?.name || item.location || 'TBD'} />
+            <DetailBlock label="Event Type" value={item.event_type || 'Not specified'} capitalize />
+            <DetailBlock label="Status" value={item.approval_status || 'active'} capitalize />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4">
+            <DetailBlock label="Price" value={item.price > 0 ? `$${item.price}` : 'Free'} highlight />
+            <DetailBlock label="Category" value={item.category || item.classified_type || 'Not specified'} capitalize />
+            <DetailBlock label="Condition" value={item.condition || 'Not specified'} capitalize />
+            <DetailBlock label="Posted" value={new Date(item.created_at).toLocaleDateString()} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const DetailBlock = ({ label, value, capitalize, highlight }) => (
+  <div className="p-3 bg-[#141c28] rounded-lg">
+    <p className="text-[#4a5568] text-[10px] uppercase tracking-wide mb-1">{label}</p>
+    <p className={`text-sm ${highlight ? 'text-[#22c55e] font-medium' : 'text-white'} ${capitalize ? 'capitalize' : ''}`}>
+      {value}
+    </p>
+  </div>
+);
 
 export default AdminContentPage;

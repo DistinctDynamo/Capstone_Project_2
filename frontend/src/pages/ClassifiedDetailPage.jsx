@@ -13,10 +13,25 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiTag,
+  FiEye,
+  FiAlertCircle,
 } from 'react-icons/fi';
-import { Card, Badge, Button, Avatar, Loading, Modal } from '../components/common';
+import { Loading } from '../components/common';
 import useAuthStore from '../store/authStore';
 import { classifiedsAPI, messagesAPI } from '../api';
+
+// Info Row Component
+const InfoRow = ({ icon: Icon, label, value }) => (
+  <div className="flex items-center gap-3 py-3 border-b border-[#1c2430] last:border-0">
+    <div className="w-8 h-8 rounded-lg bg-[#141c28] flex items-center justify-center">
+      <Icon className="w-4 h-4 text-[#64748b]" />
+    </div>
+    <div className="flex-1">
+      <p className="text-xs text-[#64748b] uppercase tracking-wider">{label}</p>
+      <p className="text-white">{value}</p>
+    </div>
+  </div>
+);
 
 const ClassifiedDetailPage = () => {
   const { id } = useParams();
@@ -30,7 +45,6 @@ const ClassifiedDetailPage = () => {
   const [contactMessage, setContactMessage] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
 
-  // Classified type mapping from backend to frontend display
   const classifiedTypeMap = {
     looking_for_players: 'players-wanted',
     looking_for_team: 'team-wanted',
@@ -40,6 +54,22 @@ const ClassifiedDetailPage = () => {
     other: 'other',
   };
 
+  const categoryColors = {
+    'players-wanted': { bg: 'bg-[#22c55e]/10', text: 'text-[#22c55e]' },
+    'team-wanted': { bg: 'bg-[#3b82f6]/10', text: 'text-[#3b82f6]' },
+    'equipment': { bg: 'bg-[#f59e0b]/10', text: 'text-[#f59e0b]' },
+    'equipment-wanted': { bg: 'bg-[#a855f7]/10', text: 'text-[#a855f7]' },
+    'coaching': { bg: 'bg-[#ef4444]/10', text: 'text-[#ef4444]' },
+    'other': { bg: 'bg-[#64748b]/10', text: 'text-[#64748b]' },
+  };
+
+  const conditionColors = {
+    new: { bg: 'bg-[#22c55e]/10', text: 'text-[#22c55e]' },
+    'like-new': { bg: 'bg-[#4ade80]/10', text: 'text-[#4ade80]' },
+    good: { bg: 'bg-[#f59e0b]/10', text: 'text-[#f59e0b]' },
+    fair: { bg: 'bg-[#ef4444]/10', text: 'text-[#ef4444]' },
+  };
+
   useEffect(() => {
     const fetchListing = async () => {
       try {
@@ -47,8 +77,6 @@ const ClassifiedDetailPage = () => {
         const response = await classifiedsAPI.getById(id);
         const listingData = response.data?.classified || response.classified || response;
 
-        // Transform API data to match component expectations
-        // Backend uses 'creator' and 'classified_type', frontend was expecting 'poster' and 'ad_type'
         const creator = listingData.creator;
 
         const transformedListing = {
@@ -96,21 +124,6 @@ const ClassifiedDetailPage = () => {
     fetchListing();
   }, [id]);
 
-  const getConditionColor = (condition) => {
-    switch (condition) {
-      case 'new':
-        return 'success';
-      case 'like-new':
-        return 'primary';
-      case 'good':
-        return 'accent';
-      case 'fair':
-        return 'warning';
-      default:
-        return 'gray';
-    }
-  };
-
   const handleSave = () => {
     if (!isAuthenticated) {
       toast.error('Please login to save listings');
@@ -132,11 +145,46 @@ const ClassifiedDetailPage = () => {
     setShowContactModal(true);
   };
 
+  const handleSendMessage = async () => {
+    if (!contactMessage.trim()) {
+      toast.error('Please enter a message');
+      return;
+    }
+    setIsSendingMessage(true);
+    try {
+      const convResponse = await messagesAPI.createConversation({
+        participantId: listing.seller.id,
+        type: 'direct'
+      });
+
+      const conversationId = convResponse.data?.conversation?._id || convResponse.data?.conversation?.id;
+
+      if (!conversationId) {
+        throw new Error('Failed to create conversation');
+      }
+
+      const messageContent = `[Re: ${listing.title}]\n\n${contactMessage}`;
+      await messagesAPI.sendMessage(conversationId, messageContent);
+
+      await classifiedsAPI.respond(id, contactMessage).catch(() => {});
+
+      setShowContactModal(false);
+      setContactMessage('');
+      toast.success('Message sent!');
+      navigate(`/messages/${conversationId}`);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error(error.response?.data?.message || 'Failed to send message');
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
   const isOwnListing = listing?.seller?.id === user?._id;
 
   if (isLoading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="min-h-[60vh] flex items-center justify-center bg-[#0a0e14]">
         <Loading size="lg" text="Loading listing..." />
       </div>
     );
@@ -144,269 +192,295 @@ const ClassifiedDetailPage = () => {
 
   if (!listing) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-white mb-4">Listing not found</h1>
-        <Link to="/classifieds" className="btn-primary">
-          Back to Classifieds
-        </Link>
+      <div className="min-h-screen bg-[#0a0e14] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-20 h-20 rounded-xl bg-[#141c28] border border-[#2a3a4d] flex items-center justify-center mx-auto mb-4">
+            <FiTag className="w-10 h-10 text-[#64748b]" />
+          </div>
+          <h1 className="text-xl font-bold text-white mb-2">Listing not found</h1>
+          <p className="text-[#64748b] mb-6">This listing may have been removed or doesn't exist</p>
+          <Link
+            to="/classifieds"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a5f2a] text-[#4ade80] rounded-lg border border-[#22c55e]/30 hover:bg-[#22723a] transition-all"
+          >
+            <FiArrowLeft className="w-4 h-4" />
+            Back to Classifieds
+          </Link>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Back Button */}
-      <Link to="/classifieds" className="inline-flex items-center gap-2 text-dark-400 hover:text-white mb-6 transition-colors">
-        <FiArrowLeft />
-        Back to Classifieds
-      </Link>
+  const category = categoryColors[listing.category] || categoryColors.other;
+  const condition = conditionColors[listing.condition] || conditionColors.good;
 
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-8">
-          {/* Image Gallery */}
-          <div className="relative rounded-2xl overflow-hidden">
-            <div className="h-96 bg-gradient-to-br from-dark-700 to-dark-800 flex items-center justify-center">
-              {listing.images.length > 0 ? (
-                <img
-                  src={listing.images[currentImageIndex]}
-                  alt={listing.title}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <FiTag className="w-24 h-24 text-dark-500" />
-              )}
-            </div>
-            {listing.images.length > 1 && (
-              <>
-                <button
-                  onClick={() => setCurrentImageIndex((prev) => (prev === 0 ? listing.images.length - 1 : prev - 1))}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-dark-900/80 flex items-center justify-center text-white hover:bg-dark-800 transition-colors"
-                >
-                  <FiChevronLeft />
-                </button>
-                <button
-                  onClick={() => setCurrentImageIndex((prev) => (prev === listing.images.length - 1 ? 0 : prev + 1))}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-dark-900/80 flex items-center justify-center text-white hover:bg-dark-800 transition-colors"
-                >
-                  <FiChevronRight />
-                </button>
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                  {listing.images.map((_, index) => (
+  return (
+    <div className="min-h-screen bg-[#0a0e14]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Back Button */}
+        <Link
+          to="/classifieds"
+          className="inline-flex items-center gap-2 text-[#64748b] hover:text-white mb-6 transition-colors"
+        >
+          <FiArrowLeft className="w-4 h-4" />
+          <span className="text-sm">Back to Classifieds</span>
+        </Link>
+
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Image Gallery */}
+            <div className="bg-[#0d1219] border border-[#1c2430] rounded-xl overflow-hidden">
+              <div className="h-80 bg-gradient-to-br from-[#1a5f2a]/20 to-[#141c28] flex items-center justify-center relative">
+                {listing.images.length > 0 ? (
+                  <img
+                    src={listing.images[currentImageIndex]}
+                    alt={listing.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <FiTag className="w-24 h-24 text-[#4ade80]/30" />
+                )}
+                {listing.images.length > 1 && (
+                  <>
                     <button
-                      key={index}
-                      onClick={() => setCurrentImageIndex(index)}
-                      className={`w-2 h-2 rounded-full transition-colors ${
-                        index === currentImageIndex ? 'bg-white' : 'bg-white/40'
-                      }`}
-                    />
-                  ))}
+                      onClick={() => setCurrentImageIndex((prev) => (prev === 0 ? listing.images.length - 1 : prev - 1))}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+                    >
+                      <FiChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentImageIndex((prev) => (prev === listing.images.length - 1 ? 0 : prev + 1))}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+                    >
+                      <FiChevronRight className="w-5 h-5" />
+                    </button>
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+                      {listing.images.map((_, index) => (
+                        <button
+                          key={index}
+                          onClick={() => setCurrentImageIndex(index)}
+                          className={`w-2 h-2 rounded-full transition-colors ${
+                            index === currentImageIndex ? 'bg-white' : 'bg-white/40'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Listing Info */}
+              <div className="p-6">
+                <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className={`px-3 py-1 rounded-lg ${condition.bg}`}>
+                        <span className={`text-xs font-medium uppercase tracking-wider ${condition.text}`}>
+                          {listing.condition}
+                        </span>
+                      </div>
+                      <div className={`px-3 py-1 rounded-lg ${category.bg}`}>
+                        <span className={`text-xs font-medium uppercase tracking-wider ${category.text}`}>
+                          {listing.category.replace('-', ' ')}
+                        </span>
+                      </div>
+                    </div>
+                    <h1 className="text-2xl font-bold text-white">{listing.title}</h1>
+                  </div>
+                  <p className="text-4xl font-bold font-mono text-[#4ade80]">
+                    ${listing.price}
+                  </p>
                 </div>
-              </>
-            )}
+
+                <div className="flex flex-wrap gap-6 text-sm text-[#64748b] mb-6 pb-6 border-b border-[#1c2430]">
+                  <div className="flex items-center gap-2">
+                    <FiMapPin className="w-4 h-4" />
+                    {listing.location}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FiClock className="w-4 h-4" />
+                    Listed {new Date(listing.createdAt).toLocaleDateString('en-US', {
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FiEye className="w-4 h-4" />
+                    {listing.views} views
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FiHeart className="w-4 h-4" />
+                    {listing.saved} saved
+                  </div>
+                </div>
+
+                <div>
+                  <h2 className="text-xs font-medium text-[#64748b] uppercase tracking-wider mb-4">Description</h2>
+                  <div className="text-[#94a3b8] whitespace-pre-wrap">
+                    {listing.description}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Listing Info */}
-          <Card>
-            <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <Badge variant={getConditionColor(listing.condition)} size="lg">
-                    {listing.condition}
-                  </Badge>
-                  <Badge variant="gray">
-                    {listing.category}
-                  </Badge>
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Action Card */}
+            <div className="bg-[#0d1219] border border-[#1c2430] rounded-xl p-6 sticky top-24">
+              {isOwnListing ? (
+                <Link
+                  to={`/classifieds/${id}/edit`}
+                  className="block w-full py-3 bg-[#1a5f2a] text-[#4ade80] rounded-lg border border-[#22c55e]/30 hover:bg-[#22723a] transition-all text-center font-medium mb-4"
+                >
+                  Edit Listing
+                </Link>
+              ) : (
+                <button
+                  onClick={handleContact}
+                  className="w-full py-3 bg-[#1a5f2a] text-[#4ade80] rounded-lg border border-[#22c55e]/30 hover:bg-[#22723a] transition-all flex items-center justify-center gap-2 font-medium mb-4"
+                >
+                  <FiMessageSquare className="w-5 h-5" />
+                  Contact Seller
+                </button>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSave}
+                  className={`flex-1 py-2 rounded-lg border flex items-center justify-center gap-2 transition-all ${
+                    isSaved
+                      ? 'bg-[#ef4444]/10 text-[#ef4444] border-[#ef4444]/30'
+                      : 'bg-[#141c28] text-[#64748b] border-[#2a3a4d] hover:text-white hover:border-[#3d4f63]'
+                  }`}
+                >
+                  <FiHeart className={`w-4 h-4 ${isSaved ? 'fill-[#ef4444]' : ''}`} />
+                  {isSaved ? 'Saved' : 'Save'}
+                </button>
+                <button className="flex-1 py-2 bg-[#141c28] text-[#64748b] rounded-lg border border-[#2a3a4d] hover:text-white hover:border-[#3d4f63] transition-all flex items-center justify-center gap-2">
+                  <FiShare2 className="w-4 h-4" />
+                  Share
+                </button>
+              </div>
+            </div>
+
+            {/* Seller Card */}
+            <div className="bg-[#0d1219] border border-[#1c2430] rounded-xl p-6">
+              <h3 className="text-xs font-medium text-[#64748b] uppercase tracking-wider mb-4">
+                Seller Information
+              </h3>
+              <div className="flex items-center gap-4 mb-4">
+                {listing.seller.avatar ? (
+                  <img src={listing.seller.avatar} alt={listing.seller.name} className="w-14 h-14 rounded-full object-cover" />
+                ) : (
+                  <div className="w-14 h-14 rounded-full bg-[#1a5f2a] flex items-center justify-center">
+                    <span className="text-xl font-bold text-[#4ade80]">
+                      {listing.seller.name?.charAt(0)?.toUpperCase() || '?'}
+                    </span>
+                  </div>
+                )}
+                <div>
+                  <p className="font-medium text-white">{listing.seller.name}</p>
+                  <div className="flex items-center gap-1 text-sm">
+                    <FiStar className="w-4 h-4 text-[#f59e0b] fill-[#f59e0b]" />
+                    <span className="font-mono text-white">{listing.seller.rating}</span>
+                    <span className="text-[#64748b]">({listing.seller.reviewCount})</span>
+                  </div>
                 </div>
-                <h1 className="text-3xl font-display font-bold text-white">
-                  {listing.title}
-                </h1>
               </div>
-              <p className="text-4xl font-bold text-primary-400">
-                ${listing.price}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-6 text-sm text-dark-400 mb-6 pb-6 border-b border-dark-700">
-              <div className="flex items-center gap-2">
-                <FiMapPin className="w-4 h-4" />
-                {listing.location}
+              <div className="pt-4 border-t border-[#1c2430]">
+                <InfoRow
+                  icon={FiUser}
+                  label="Member Since"
+                  value={new Date(listing.seller.memberSince).toLocaleDateString('en-US', {
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                />
+                <InfoRow
+                  icon={FiTag}
+                  label="Active Listings"
+                  value={listing.seller.listingsCount}
+                />
+                <InfoRow
+                  icon={FiClock}
+                  label="Response Time"
+                  value={listing.seller.responseTime}
+                />
               </div>
-              <div className="flex items-center gap-2">
-                <FiClock className="w-4 h-4" />
-                Listed {new Date(listing.createdAt).toLocaleDateString('en-US', {
-                  month: 'long',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
-              </div>
-              <div className="flex items-center gap-2">
-                <FiHeart className="w-4 h-4" />
-                {listing.saved} saved
-              </div>
-            </div>
-
-            <div>
-              <h2 className="text-xl font-semibold text-white mb-4">Description</h2>
-              <div className="prose prose-invert max-w-none">
-                {listing.description.split('\n').map((paragraph, index) => (
-                  <p key={index} className="text-dark-300 mb-4 whitespace-pre-wrap">
-                    {paragraph}
-                  </p>
-                ))}
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Action Card */}
-          <Card className="sticky top-24">
-            {isOwnListing ? (
-              <Link to={`/classifieds/${id}/edit`} className="btn-primary w-full mb-4 flex items-center justify-center gap-2">
-                Edit Listing
-              </Link>
-            ) : (
-              <Button variant="primary" className="w-full mb-4" onClick={handleContact}>
-                <FiMessageSquare />
-                Contact Seller
-              </Button>
-            )}
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                className="flex-1"
-                onClick={handleSave}
+              <Link
+                to={`/players/${listing.seller.id}`}
+                className="block w-full py-2 bg-[#141c28] text-white rounded-lg border border-[#2a3a4d] hover:bg-[#1c2430] transition-all text-center text-sm font-medium mt-4"
               >
-                <FiHeart className={isSaved ? 'fill-red-500 text-red-500' : ''} />
-                {isSaved ? 'Saved' : 'Save'}
-              </Button>
-              <Button variant="secondary" className="flex-1">
-                <FiShare2 />
-                Share
-              </Button>
+                View Profile
+              </Link>
             </div>
-          </Card>
 
-          {/* Seller Card */}
-          <Card>
-            <h3 className="text-lg font-semibold text-white mb-4">Seller Information</h3>
-            <div className="flex items-center gap-4 mb-4">
-              <Avatar src={listing.seller.avatar} name={listing.seller.name} size="lg" />
-              <div>
-                <p className="font-medium text-white">{listing.seller.name}</p>
-                <div className="flex items-center gap-1 text-sm">
-                  <FiStar className="w-4 h-4 text-accent-400 fill-accent-400" />
-                  <span className="text-white">{listing.seller.rating}</span>
-                  <span className="text-dark-400">({listing.seller.reviewCount} reviews)</span>
-                </div>
+            {/* Safety Tips */}
+            <div className="bg-[#f59e0b]/10 border border-[#f59e0b]/30 rounded-xl p-6">
+              <div className="flex items-center gap-2 mb-3">
+                <FiAlertCircle className="w-5 h-5 text-[#f59e0b]" />
+                <h3 className="text-sm font-medium text-[#f59e0b] uppercase tracking-wider">
+                  Safety Tips
+                </h3>
               </div>
+              <ul className="text-sm text-[#94a3b8] space-y-2">
+                <li className="flex items-start gap-2">
+                  <span className="text-[#f59e0b]">•</span>
+                  Meet in a public place
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-[#f59e0b]">•</span>
+                  Inspect items before paying
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-[#f59e0b]">•</span>
+                  Use secure payment methods
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-[#f59e0b]">•</span>
+                  Trust your instincts
+                </li>
+              </ul>
             </div>
-            <div className="space-y-3 text-sm text-dark-400 pt-4 border-t border-dark-700">
-              <div className="flex items-center gap-2">
-                <FiUser className="w-4 h-4" />
-                Member since {new Date(listing.seller.memberSince).toLocaleDateString('en-US', {
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </div>
-              <div className="flex items-center gap-2">
-                <FiTag className="w-4 h-4" />
-                {listing.seller.listingsCount} active listings
-              </div>
-              <div className="flex items-center gap-2">
-                <FiClock className="w-4 h-4" />
-                {listing.seller.responseTime}
-              </div>
-            </div>
-            <Link
-              to={`/players/${listing.seller.id}`}
-              className="btn-secondary w-full mt-4"
-            >
-              View Profile
-            </Link>
-          </Card>
-
-          {/* Safety Tips */}
-          <Card className="bg-accent-500/10 border-accent-500/30">
-            <h3 className="text-lg font-semibold text-accent-400 mb-3">Safety Tips</h3>
-            <ul className="text-sm text-dark-300 space-y-2">
-              <li>- Meet in a public place</li>
-              <li>- Inspect items before paying</li>
-              <li>- Use secure payment methods</li>
-              <li>- Trust your instincts</li>
-            </ul>
-          </Card>
+          </div>
         </div>
       </div>
 
       {/* Contact Modal */}
-      <Modal isOpen={showContactModal} onClose={() => setShowContactModal(false)} title="Contact Seller">
-        <div className="space-y-4">
-          <p className="text-dark-400">
-            Send a message to {listing.seller.name} about this listing.
-          </p>
-          <textarea
-            className="input min-h-[120px] resize-none"
-            placeholder="Hi, I'm interested in this item. Is it still available?"
-            value={contactMessage}
-            onChange={(e) => setContactMessage(e.target.value)}
-          />
-          <Modal.Actions>
-            <Button variant="secondary" onClick={() => setShowContactModal(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              isLoading={isSendingMessage}
-              onClick={async () => {
-                if (!contactMessage.trim()) {
-                  toast.error('Please enter a message');
-                  return;
-                }
-                setIsSendingMessage(true);
-                try {
-                  // Create or get existing conversation with the seller
-                  const convResponse = await messagesAPI.createConversation({
-                    participantId: listing.seller.id,
-                    type: 'direct'
-                  });
-
-                  const conversationId = convResponse.data?.conversation?._id || convResponse.data?.conversation?.id;
-
-                  if (!conversationId) {
-                    throw new Error('Failed to create conversation');
-                  }
-
-                  // Send the message about the listing
-                  const messageContent = `[Re: ${listing.title}]\n\n${contactMessage}`;
-                  await messagesAPI.sendMessage(conversationId, messageContent);
-
-                  // Also record the response in the classified
-                  await classifiedsAPI.respond(id, contactMessage).catch(() => {
-                    // Silent fail - the main message was sent
-                  });
-
-                  setShowContactModal(false);
-                  setContactMessage('');
-                  toast.success('Message sent!');
-
-                  // Navigate to the conversation
-                  navigate(`/messages/${conversationId}`);
-                } catch (error) {
-                  console.error('Error sending message:', error);
-                  toast.error(error.response?.data?.message || 'Failed to send message');
-                } finally {
-                  setIsSendingMessage(false);
-                }
-              }}
-            >
-              Send Message
-            </Button>
-          </Modal.Actions>
+      {showContactModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setShowContactModal(false)} />
+          <div className="relative w-full max-w-md bg-[#0d1219] border border-[#1c2430] rounded-xl p-6">
+            <h2 className="text-xl font-bold text-white mb-2">Contact Seller</h2>
+            <p className="text-sm text-[#64748b] mb-6">
+              Send a message to {listing.seller.name} about this listing.
+            </p>
+            <textarea
+              className="w-full px-4 py-3 bg-[#141c28] border border-[#2a3a4d] rounded-lg text-white placeholder-[#64748b] focus:outline-none focus:border-[#4ade80]/50 min-h-[120px] resize-none"
+              placeholder="Hi, I'm interested in this item. Is it still available?"
+              value={contactMessage}
+              onChange={(e) => setContactMessage(e.target.value)}
+            />
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowContactModal(false)}
+                className="flex-1 py-3 bg-[#141c28] text-white rounded-lg border border-[#2a3a4d] hover:bg-[#1c2430] transition-all font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendMessage}
+                disabled={isSendingMessage}
+                className="flex-1 py-3 bg-[#1a5f2a] text-[#4ade80] rounded-lg border border-[#22c55e]/30 hover:bg-[#22723a] transition-all font-medium disabled:opacity-50"
+              >
+                {isSendingMessage ? 'Sending...' : 'Send Message'}
+              </button>
+            </div>
+          </div>
         </div>
-      </Modal>
+      )}
     </div>
   );
 };

@@ -1,5 +1,6 @@
 const express = require('express');
 const Event = require('../models/events');
+const Notification = require('../models/notification');
 const { protect, optionalAuth } = require('../middleware/auth');
 const { eventValidation, mongoIdValidation, paginationValidation } = require('../middleware/validators');
 
@@ -368,6 +369,20 @@ router.post('/:id/join', protect, mongoIdValidation, async (req, res, next) => {
 
     await event.save();
 
+    // Notify event creator about the join request
+    const requesterName = req.user.first_name
+      ? `${req.user.first_name} ${req.user.last_name || ''}`.trim()
+      : req.user.username;
+
+    await Notification.create({
+      user: event.creator,
+      type: 'event_invite',
+      title: 'New Join Request',
+      message: `${requesterName} has requested to join "${event.title}"`,
+      link: `/events/${event._id}`,
+      reference: { model: 'Event', id: event._id }
+    });
+
     res.status(201).json({
       success: true,
       message: 'Join request submitted. Waiting for approval.',
@@ -443,6 +458,26 @@ router.put('/:id/requests/:requestId', protect, async (req, res, next) => {
       event.participants.push({
         user: request.user,
         joined_at: new Date()
+      });
+
+      // Notify user about approval
+      await Notification.create({
+        user: request.user,
+        type: 'event_invite',
+        title: 'Request Approved!',
+        message: `Your request to join "${event.title}" has been approved!`,
+        link: `/events/${event._id}`,
+        reference: { model: 'Event', id: event._id }
+      });
+    } else {
+      // Notify user about rejection
+      await Notification.create({
+        user: request.user,
+        type: 'event_cancelled',
+        title: 'Request Not Approved',
+        message: `Your request to join "${event.title}" was not approved.`,
+        link: '/events',
+        reference: { model: 'Event', id: event._id }
       });
     }
 

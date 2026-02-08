@@ -38,6 +38,7 @@ import FindPlayersPage from './pages/FindPlayersPage';
 import {
   AdminDashboardPage,
   AdminPendingPage,
+  AdminTeamsPage,
   AdminUsersPage,
   AdminContentPage,
 } from './pages/admin';
@@ -125,6 +126,7 @@ function App() {
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboardPage />} />
             <Route path="pending" element={<AdminPendingPage />} />
+            <Route path="teams" element={<AdminTeamsPage />} />
             <Route path="users" element={<AdminUsersPage />} />
             <Route path="content" element={<AdminContentPage />} />
           </Route>

@@ -22,6 +22,8 @@ const notificationSchema = new mongoose.Schema({
       'team_rejected',
       'event_approved',
       'event_rejected',
+      'classified_approved',
+      'classified_rejected',
       'message',
       'system'
     ],

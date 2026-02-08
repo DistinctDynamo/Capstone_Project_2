@@ -10,9 +10,17 @@ export const adminAPI = {
   rejectEvent: (id, reason) => api.put(`/admin/events/${id}/reject`, { reason }),
 
   // Teams management
+  getTeams: (params = {}) => api.get('/admin/teams', { params }),
   getPendingTeams: () => api.get('/admin/teams/pending'),
   approveTeam: (id) => api.put(`/admin/teams/${id}/approve`),
   rejectTeam: (id, reason) => api.put(`/admin/teams/${id}/reject`, { reason }),
+  updateTeam: (id, data) => api.put(`/admin/teams/${id}`, data),
+  deleteTeam: (id) => api.delete(`/admin/teams/${id}`),
+
+  // Classifieds management
+  getPendingClassifieds: () => api.get('/admin/classifieds/pending'),
+  approveClassified: (id) => api.put(`/admin/classifieds/${id}/approve`),
+  rejectClassified: (id, reason) => api.put(`/admin/classifieds/${id}/reject`, { reason }),
 
   // User management
   getUsers: (params = {}) => api.get('/admin/users', { params }),

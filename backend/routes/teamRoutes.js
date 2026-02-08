@@ -3,6 +3,7 @@ const Team = require('../models/teams');
 const User = require('../models/user');
 const Conversation = require('../models/conversation');
 const Message = require('../models/message');
+const Notification = require('../models/notification');
 const { protect, optionalAuth } = require('../middleware/auth');
 const { teamValidation, mongoIdValidation, paginationValidation } = require('../middleware/validators');
 
@@ -440,6 +441,20 @@ router.post('/:id/apply', protect, mongoIdValidation, async (req, res, next) => 
 
     await team.save();
 
+    // Notify team owner about the application
+    const applicantName = req.user.first_name
+      ? `${req.user.first_name} ${req.user.last_name || ''}`.trim()
+      : req.user.username;
+
+    await Notification.create({
+      user: team.owner,
+      type: 'team_application',
+      title: 'New Team Application',
+      message: `${applicantName} has applied to join ${team.team_name}`,
+      link: '/my-team',
+      reference: { model: 'Team', id: team._id }
+    });
+
     res.status(201).json({
       success: true,
       message: 'Application submitted successfully'
@@ -528,6 +543,26 @@ router.put('/:id/applications/:applicationId', protect, async (req, res, next) =
       // Add user to team chat
       const userName = acceptedUser.first_name || acceptedUser.username || 'A new member';
       await addUserToTeamChat(team._id, application.user, userName);
+
+      // Notify applicant about acceptance
+      await Notification.create({
+        user: application.user,
+        type: 'team_application_accepted',
+        title: 'Application Accepted!',
+        message: `Congratulations! Your application to join ${team.team_name} has been accepted.`,
+        link: '/my-team',
+        reference: { model: 'Team', id: team._id }
+      });
+    } else {
+      // Notify applicant about rejection
+      await Notification.create({
+        user: application.user,
+        type: 'team_application_rejected',
+        title: 'Application Not Accepted',
+        message: `Your application to join ${team.team_name} was not accepted at this time.`,
+        link: '/teams',
+        reference: { model: 'Team', id: team._id }
+      });
     }
 
     await team.save();
@@ -604,6 +639,16 @@ router.post('/:id/invite', protect, mongoIdValidation, async (req, res, next) =>
     });
 
     await team.save();
+
+    // Notify the invited user
+    await Notification.create({
+      user: userId,
+      type: 'team_invite',
+      title: 'Team Invitation',
+      message: `You have been invited to join ${team.team_name}!`,
+      link: '/dashboard',
+      reference: { model: 'Team', id: team._id }
+    });
 
     res.status(201).json({
       success: true,

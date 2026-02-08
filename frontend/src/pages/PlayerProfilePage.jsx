@@ -6,21 +6,52 @@ import {
   FiMapPin,
   FiUsers,
   FiCalendar,
-  FiEdit2,
-  FiSave,
-  FiX,
-  FiTarget,
   FiTrendingUp,
   FiMessageSquare,
   FiSend,
   FiClock,
+  FiAward,
+  FiActivity,
 } from 'react-icons/fi';
 import { GiSoccerBall, GiSoccerKick, GiWhistle } from 'react-icons/gi';
-import { Card, Badge, Button, Loading, Modal } from '../components/common';
-import PlayerStatsRadar from '../components/player/PlayerStatsRadar';
-import PlayerCard from '../components/player/PlayerCard';
 import useAuthStore from '../store/authStore';
 import { usersAPI, messagesAPI, teamsAPI } from '../api';
+
+// Stadium Control Room Components
+const StatBox = ({ value, label, icon: Icon, color = '#4ade80' }) => (
+  <div className="bg-[#141c28] border border-[#2a3a4d] rounded-lg p-4 text-center relative overflow-hidden">
+    <div className="absolute top-2 right-2">
+      {Icon && <Icon className="w-4 h-4" style={{ color: color + '60' }} />}
+    </div>
+    <p className="text-3xl font-bold font-mono" style={{ color }}>{value}</p>
+    <p className="text-xs text-[#64748b] uppercase tracking-wider mt-1">{label}</p>
+  </div>
+);
+
+const InfoRow = ({ icon: Icon, label, value }) => (
+  <div className="flex items-center justify-between py-3 border-b border-[#1c2430] last:border-0">
+    <div className="flex items-center gap-3">
+      {Icon && <Icon className="w-4 h-4 text-[#64748b]" />}
+      <span className="text-xs uppercase tracking-wider text-[#64748b]">{label}</span>
+    </div>
+    <span className="text-white font-medium">{value}</span>
+  </div>
+);
+
+const HistoryRow = ({ teamName, role, joinDate, leftDate }) => (
+  <div className="flex items-center gap-4 py-3 px-4 bg-[#141c28] rounded-lg border border-[#2a3a4d]">
+    <div className="w-10 h-10 rounded-lg bg-[#0d1219] border border-[#2a3a4d] flex items-center justify-center">
+      <GiWhistle className="w-5 h-5 text-[#64748b]" />
+    </div>
+    <div className="flex-1">
+      <p className="text-white font-medium">{teamName}</p>
+      <p className="text-xs text-[#64748b] capitalize">{role}</p>
+    </div>
+    <div className="text-right">
+      <p className="text-xs text-[#4b5563] font-mono">{joinDate} - {leftDate}</p>
+    </div>
+  </div>
+);
 
 const PlayerProfilePage = () => {
   const navigate = useNavigate();
@@ -28,19 +59,14 @@ const PlayerProfilePage = () => {
   const { user: currentUser, isAuthenticated } = useAuthStore();
   const [playerData, setPlayerData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [editedStats, setEditedStats] = useState({});
   const [showCardReveal, setShowCardReveal] = useState(true);
   const [myTeam, setMyTeam] = useState(null);
   const [isMessaging, setIsMessaging] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
 
-  // Handle "me" route - use current user's ID
   const playerId = paramId === 'me' ? currentUser?._id : paramId;
   const isOwnProfile = currentUser?._id === playerId || paramId === 'me';
 
-  // Fetch current user's team for invite capability
   useEffect(() => {
     const fetchMyTeam = async () => {
       if (!isAuthenticated || !currentUser?.team) return;
@@ -56,14 +82,13 @@ const PlayerProfilePage = () => {
 
   useEffect(() => {
     const fetchPlayerData = async () => {
-      // Wait for user to load if viewing own profile
       if (paramId === 'me' && !currentUser?._id) {
         if (!isAuthenticated) {
           toast.error('Please log in to view your profile');
           setIsLoading(false);
           return;
         }
-        return; // Wait for currentUser to be populated
+        return;
       }
 
       if (!playerId) {
@@ -75,9 +100,6 @@ const PlayerProfilePage = () => {
         setIsLoading(true);
         const response = await usersAPI.getPlayerStats(playerId);
         setPlayerData(response.data);
-        setEditedStats(response.data.player_attributes || {});
-
-        // Show card reveal animation
         setShowCardReveal(true);
         setTimeout(() => setShowCardReveal(false), 2000);
       } catch (error) {
@@ -97,91 +119,33 @@ const PlayerProfilePage = () => {
     fetchPlayerData();
   }, [playerId, paramId, currentUser, isAuthenticated]);
 
-  // Calculate overall rating
   const overallRating = useMemo(() => {
     if (!playerData) return 0;
     return playerData.overall_rating || 50;
   }, [playerData]);
 
-  // Get tier based on rating
   const tier = useMemo(() => {
     if (overallRating >= 80) return 'gold';
     if (overallRating >= 65) return 'silver';
     return 'bronze';
   }, [overallRating]);
 
-  // Tier styles
-  const tierStyles = {
-    gold: {
-      gradient: 'from-amber-600/20 via-yellow-500/10 to-amber-400/20',
-      border: 'border-amber-500/30',
-      text: 'text-amber-400',
-      glow: 'shadow-[0_0_60px_rgba(251,191,36,0.15)]',
-      badge: 'accent',
-    },
-    silver: {
-      gradient: 'from-slate-500/20 via-gray-400/10 to-slate-300/20',
-      border: 'border-slate-400/30',
-      text: 'text-slate-300',
-      glow: 'shadow-[0_0_40px_rgba(148,163,184,0.15)]',
-      badge: 'gray',
-    },
-    bronze: {
-      gradient: 'from-amber-800/20 via-orange-700/10 to-amber-600/20',
-      border: 'border-orange-500/30',
-      text: 'text-orange-400',
-      glow: 'shadow-[0_0_30px_rgba(217,119,6,0.15)]',
-      badge: 'warning',
-    },
+  const tierConfig = {
+    gold: { color: '#fbbf24', glow: '#fbbf24', label: 'ELITE' },
+    silver: { color: '#94a3b8', glow: '#94a3b8', label: 'PRO' },
+    bronze: { color: '#f59e0b', glow: '#f59e0b', label: 'RISING' },
   };
 
-  const style = tierStyles[tier];
-
-  // Get position label
   const getPositionLabel = (position) => {
     switch (position) {
-      case 'goalkeeper': return 'Goalkeeper';
-      case 'defender': return 'Defender';
-      case 'midfielder': return 'Midfielder';
-      case 'forward': return 'Forward';
-      default: return 'Player';
+      case 'goalkeeper': return 'GK';
+      case 'defender': return 'DEF';
+      case 'midfielder': return 'MID';
+      case 'forward': return 'FWD';
+      default: return 'PLR';
     }
   };
 
-  // Get position icon
-  const getPositionIcon = (position) => {
-    switch (position) {
-      case 'goalkeeper': return <GiWhistle className="w-5 h-5" />;
-      case 'forward': return <GiSoccerKick className="w-5 h-5" />;
-      default: return <GiSoccerBall className="w-5 h-5" />;
-    }
-  };
-
-  // Handle stat edit
-  const handleStatChange = (stat, value) => {
-    const numValue = Math.max(1, Math.min(99, parseInt(value, 10) || 1));
-    setEditedStats(prev => ({ ...prev, [stat]: numValue }));
-  };
-
-  // Save edited stats
-  const handleSaveStats = async () => {
-    setIsSaving(true);
-    try {
-      await usersAPI.updatePlayerStats(editedStats);
-      toast.success('Player attributes updated!');
-      // Refresh data
-      const response = await usersAPI.getPlayerStats(playerId);
-      setPlayerData(response.data);
-      setIsEditing(false);
-    } catch (error) {
-      console.error('Error saving stats:', error);
-      toast.error('Failed to save attributes');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Handle message player
   const handleMessagePlayer = async () => {
     if (!isAuthenticated) {
       toast.error('Please login to message players');
@@ -199,7 +163,6 @@ const PlayerProfilePage = () => {
     }
   };
 
-  // Handle invite player
   const handleInvitePlayer = async () => {
     if (!myTeam) {
       toast.error('You need a team to invite players');
@@ -220,362 +183,284 @@ const PlayerProfilePage = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <Loading size="lg" text="Loading player profile..." />
+      <div className="min-h-screen bg-[#0a0e14] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-2 border-[#22c55e] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[#64748b]">Loading player profile...</p>
+        </div>
       </div>
     );
   }
 
   if (!playerData) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold text-white mb-4">Player not found</h1>
-        <Link to="/teams" className="btn-primary">
-          Back to Teams
-        </Link>
+      <div className="min-h-screen bg-[#0a0e14]">
+        <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+          <div className="w-20 h-20 rounded-full bg-[#141c28] border border-[#2a3a4d] flex items-center justify-center mx-auto mb-6">
+            <FiUsers className="w-10 h-10 text-[#64748b]" />
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-4">Player not found</h1>
+          <Link
+            to="/teams"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-[#22c55e] text-white rounded-lg font-medium hover:bg-[#16a34a] transition-colors"
+          >
+            Back to Teams
+          </Link>
+        </div>
       </div>
     );
   }
 
-  const { user, player_attributes } = playerData;
+  const { user } = playerData;
   const playerName = user.full_name || `${user.first_name} ${user.last_name}`;
+  const config = tierConfig[tier];
 
   return (
-    <div className="min-h-screen">
-      {/* Card Reveal Animation Overlay */}
+    <div className="min-h-screen bg-[#0a0e14]">
+      {/* Card Reveal Animation */}
       {showCardReveal && (
-        <div className="fixed inset-0 z-50 bg-dark-950 flex items-center justify-center animate-fade-in">
-          <div className="relative">
-            {/* Glow effect */}
-            <div className="absolute inset-0 blur-3xl bg-gradient-to-r from-primary-500/50 via-accent-500/50 to-primary-500/50 animate-pulse" />
-
-            {/* Card with reveal animation */}
-            <div className="relative animate-[cardReveal_1.5s_ease-out_forwards]">
-              <PlayerCard
-                player={{
-                  ...user,
-                  player_attributes,
-                  overall_rating: overallRating,
-                }}
-                size="lg"
-                showStats={true}
-                clickable={false}
-              />
+        <div className="fixed inset-0 z-50 bg-[#0a0e14] flex items-center justify-center">
+          <div className="relative animate-pulse">
+            <div
+              className="absolute inset-0 blur-3xl opacity-50 animate-ping"
+              style={{ backgroundColor: config.color + '30' }}
+            />
+            <div
+              className="relative w-64 h-80 rounded-xl border-2 flex flex-col items-center justify-center"
+              style={{
+                borderColor: config.color,
+                background: `linear-gradient(135deg, ${config.color}10 0%, #0d1219 50%, ${config.color}05 100%)`,
+                boxShadow: `0 0 60px ${config.color}30`,
+              }}
+            >
+              <p className="text-6xl font-bold font-mono mb-2" style={{ color: config.color }}>{overallRating}</p>
+              <p className="text-white font-bold text-xl">{playerName}</p>
+              <p className="text-[#64748b] text-sm uppercase tracking-wider">{getPositionLabel(user.position)}</p>
+              <div className="absolute bottom-4 left-0 right-0 flex justify-center">
+                <span
+                  className="px-3 py-1 rounded text-xs font-bold uppercase tracking-wider"
+                  style={{ backgroundColor: config.color + '20', color: config.color }}
+                >
+                  {config.label}
+                </span>
+              </div>
             </div>
           </div>
-
-          <style>{`
-            @keyframes cardReveal {
-              0% {
-                transform: perspective(1000px) rotateY(180deg) scale(0.5);
-                opacity: 0;
-              }
-              50% {
-                transform: perspective(1000px) rotateY(0deg) scale(1.1);
-                opacity: 1;
-              }
-              100% {
-                transform: perspective(1000px) rotateY(0deg) scale(1);
-                opacity: 1;
-              }
-            }
-          `}</style>
         </div>
       )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Back Button */}
         <Link
-          to="/teams"
-          className="inline-flex items-center gap-2 text-dark-400 hover:text-white mb-6 transition-colors"
+          to="/players"
+          className="inline-flex items-center gap-2 text-[#64748b] hover:text-white mb-6 transition-colors"
         >
-          <FiArrowLeft />
-          Back
+          <FiArrowLeft className="w-4 h-4" />
+          <span className="text-sm">Back to Players</span>
         </Link>
 
-        {/* Hero Section */}
-        <div
-          className={`
-            relative overflow-hidden rounded-2xl mb-8
-            bg-gradient-to-br ${style.gradient}
-            ${style.border} border
-            ${style.glow}
-          `}
-        >
-          {/* Background decoration */}
-          <div className="absolute inset-0 opacity-5">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl translate-x-1/2 -translate-y-1/2" />
-            <div className="absolute bottom-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl -translate-x-1/2 translate-y-1/2" />
-          </div>
-
-          <div className="relative z-10 p-8">
-            <div className="flex flex-col lg:flex-row gap-8 items-center lg:items-start">
-              {/* Player Card */}
-              <div className="flex-shrink-0">
-                <PlayerCard
-                  player={{
-                    ...user,
-                    player_attributes,
-                    overall_rating: overallRating,
-                  }}
-                  size="lg"
-                  showStats={true}
-                  clickable={false}
-                />
+        {/* Main Grid */}
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Left Column - Player Card */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Player Card */}
+            <div
+              className="bg-[#0d1219] border rounded-lg overflow-hidden relative"
+              style={{ borderColor: config.color + '50' }}
+            >
+              {/* Tier Header */}
+              <div
+                className="px-4 py-3 flex items-center justify-between"
+                style={{ backgroundColor: config.color + '10', borderBottom: `1px solid ${config.color}30` }}
+              >
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-2 h-2 rounded-full animate-pulse"
+                    style={{ backgroundColor: config.color }}
+                  />
+                  <span className="text-xs uppercase tracking-wider" style={{ color: config.color }}>
+                    {config.label} Player
+                  </span>
+                </div>
+                <span
+                  className="text-2xl font-bold font-mono"
+                  style={{ color: config.color }}
+                >
+                  {overallRating}
+                </span>
               </div>
 
-              {/* Player Info */}
-              <div className="flex-1 text-center lg:text-left">
-                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 mb-4">
-                  <Badge variant={style.badge} size="lg" icon={getPositionIcon(user.position)}>
-                    {getPositionLabel(user.position)}
-                  </Badge>
-                  {user.team?.team_name && (
-                    <Badge variant="primary" size="lg">
-                      {user.team.team_name}
-                    </Badge>
-                  )}
-                  {user.nationality && (
-                    <Badge variant="gray" size="lg">
-                      {user.nationality}
-                    </Badge>
+              {/* Player Photo & Info */}
+              <div className="p-6 text-center">
+                <div
+                  className="w-32 h-32 rounded-xl mx-auto mb-4 overflow-hidden border-2"
+                  style={{ borderColor: config.color + '50' }}
+                >
+                  {user.profile_image || user.avatar ? (
+                    <img
+                      src={user.profile_image || user.avatar}
+                      alt={playerName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div
+                      className="w-full h-full flex items-center justify-center text-4xl font-bold"
+                      style={{ backgroundColor: config.color + '20', color: config.color }}
+                    >
+                      {playerName?.[0] || '?'}
+                    </div>
                   )}
                 </div>
+                <h1 className="text-2xl font-bold text-white mb-1">{playerName}</h1>
+                <p className="text-[#64748b] font-mono mb-4">@{user.username}</p>
 
-                <h1 className="text-4xl lg:text-5xl font-display font-bold text-white mb-2">
-                  {playerName}
-                </h1>
-                <p className="text-dark-400 text-lg mb-6">@{user.username}</p>
+                {/* Position Badge */}
+                <div className="flex justify-center gap-3 mb-4">
+                  <span
+                    className="px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wider"
+                    style={{ backgroundColor: config.color + '20', color: config.color, border: `1px solid ${config.color}30` }}
+                  >
+                    {user.position || 'Player'}
+                  </span>
+                </div>
 
                 {/* Quick Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                  <div className="bg-dark-800/50 rounded-xl p-4 text-center">
-                    <GiSoccerBall className="w-6 h-6 text-primary-400 mx-auto mb-2" />
-                    <p className="text-2xl font-bold text-white">{user.stats?.games_played || 0}</p>
-                    <p className="text-sm text-dark-400">Games</p>
+                <div className="grid grid-cols-3 gap-2 text-center mb-4">
+                  <div className="bg-[#141c28] rounded-lg p-3 border border-[#2a3a4d]">
+                    <p className="text-xl font-bold font-mono text-[#4ade80]">{user.stats?.games_played || 0}</p>
+                    <p className="text-[10px] text-[#64748b] uppercase tracking-wider">GP</p>
                   </div>
-                  <div className="bg-dark-800/50 rounded-xl p-4 text-center">
-                    <FiTarget className="w-6 h-6 text-accent-400 mx-auto mb-2" />
-                    <p className="text-2xl font-bold text-white">{user.stats?.goals || 0}</p>
-                    <p className="text-sm text-dark-400">Goals</p>
+                  <div className="bg-[#141c28] rounded-lg p-3 border border-[#2a3a4d]">
+                    <p className="text-xl font-bold font-mono text-[#f59e0b]">{user.stats?.goals || 0}</p>
+                    <p className="text-[10px] text-[#64748b] uppercase tracking-wider">Goals</p>
                   </div>
-                  <div className="bg-dark-800/50 rounded-xl p-4 text-center">
-                    <FiTrendingUp className="w-6 h-6 text-green-400 mx-auto mb-2" />
-                    <p className="text-2xl font-bold text-white">{user.stats?.assists || 0}</p>
-                    <p className="text-sm text-dark-400">Assists</p>
-                  </div>
-                  <div className="bg-dark-800/50 rounded-xl p-4 text-center">
-                    <GiWhistle className="w-6 h-6 text-blue-400 mx-auto mb-2" />
-                    <p className="text-2xl font-bold text-white">{user.stats?.clean_sheets || 0}</p>
-                    <p className="text-sm text-dark-400">Clean Sheets</p>
+                  <div className="bg-[#141c28] rounded-lg p-3 border border-[#2a3a4d]">
+                    <p className="text-xl font-bold font-mono text-[#3b82f6]">{user.stats?.assists || 0}</p>
+                    <p className="text-[10px] text-[#64748b] uppercase tracking-wider">Assists</p>
                   </div>
                 </div>
+              </div>
 
-                {/* Action buttons */}
-                <div className="flex flex-wrap gap-3 justify-center lg:justify-start">
-                  {/* Edit button for own profile */}
-                  {isOwnProfile && isAuthenticated && (
-                    <>
-                      {isEditing ? (
-                        <>
-                          <Button
-                            variant="primary"
-                            onClick={handleSaveStats}
-                            isLoading={isSaving}
-                            leftIcon={<FiSave />}
-                          >
-                            Save Changes
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            onClick={() => {
-                              setIsEditing(false);
-                              setEditedStats(player_attributes);
-                            }}
-                            leftIcon={<FiX />}
-                          >
-                            Cancel
-                          </Button>
-                        </>
+              {/* Action Buttons */}
+              <div className="p-4 border-t border-[#1c2430]">
+                {isAuthenticated && !isOwnProfile && (
+                  <div className="space-y-2">
+                    <button
+                      onClick={handleMessagePlayer}
+                      disabled={isMessaging}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#22c55e] text-white rounded-lg font-medium hover:bg-[#16a34a] transition-colors disabled:opacity-50"
+                    >
+                      {isMessaging ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       ) : (
-                        <Button
-                          variant="secondary"
-                          onClick={() => setIsEditing(true)}
-                          leftIcon={<FiEdit2 />}
-                        >
-                          Edit Attributes
-                        </Button>
+                        <FiMessageSquare className="w-4 h-4" />
                       )}
-                    </>
-                  )}
-
-                  {/* Message and Invite buttons for other profiles */}
-                  {!isOwnProfile && isAuthenticated && (
-                    <>
-                      <Button
-                        variant="primary"
-                        onClick={handleMessagePlayer}
-                        isLoading={isMessaging}
-                        leftIcon={<FiMessageSquare />}
+                      Message
+                    </button>
+                    {canInvite && !user.team && (
+                      <button
+                        onClick={handleInvitePlayer}
+                        disabled={isInviting}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#141c28] border border-[#2a3a4d] text-white rounded-lg hover:bg-[#1c2430] transition-colors disabled:opacity-50"
                       >
-                        Message
-                      </Button>
-                      {canInvite && !user.team && (
-                        <Button
-                          variant="secondary"
-                          onClick={handleInvitePlayer}
-                          isLoading={isInviting}
-                          leftIcon={<FiSend />}
-                        >
-                          Invite to Team
-                        </Button>
-                      )}
-                    </>
-                  )}
-                </div>
+                        {isInviting ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <FiSend className="w-4 h-4" />
+                        )}
+                        Invite to Team
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Player Info */}
+            <div className="bg-[#0d1219] border border-[#1c2430] rounded-lg overflow-hidden">
+              <div className="px-4 py-3 border-b border-[#1c2430]">
+                <span className="text-xs uppercase tracking-wider text-[#64748b]">Player Info</span>
+              </div>
+              <div className="p-4">
+                <InfoRow icon={FiMapPin} label="Location" value={user.location || 'Not specified'} />
+                <InfoRow icon={FiAward} label="Skill Level" value={user.skill_level || 'Recreational'} />
+                {user.team?.team_name && (
+                  <InfoRow icon={GiWhistle} label="Team" value={user.team.team_name} />
+                )}
+                <InfoRow icon={FiCalendar} label="Joined" value={new Date(user.createdAt || Date.now()).toLocaleDateString()} />
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Stats Section */}
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Radar Chart */}
-          <Card>
-            <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-              <GiSoccerBall className="text-primary-400" />
-              Player Attributes
-            </h2>
-            <div className="flex justify-center">
-              <PlayerStatsRadar
-                stats={isEditing ? editedStats : player_attributes}
-                size={320}
-                animated={!isEditing}
-              />
+          {/* Right Column - Stats & Details */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Performance Stats */}
+            <div className="bg-[#0d1219] border border-[#1c2430] rounded-lg overflow-hidden">
+              <div className="px-4 py-3 border-b border-[#1c2430] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-[#22c55e] animate-pulse" />
+                  <span className="text-xs uppercase tracking-wider text-[#64748b]">Performance Stats</span>
+                </div>
+                <FiActivity className="w-4 h-4 text-[#22c55e]" />
+              </div>
+              <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <StatBox value={user.stats?.games_played || 0} label="Games Played" icon={GiSoccerBall} color="#4ade80" />
+                <StatBox value={user.stats?.goals || 0} label="Goals" icon={GiSoccerKick} color="#f59e0b" />
+                <StatBox value={user.stats?.assists || 0} label="Assists" icon={FiTrendingUp} color="#3b82f6" />
+                <StatBox value={user.stats?.clean_sheets || 0} label="Clean Sheets" icon={GiWhistle} color="#a855f7" />
+              </div>
             </div>
-          </Card>
 
-          {/* Detailed Stats */}
-          <Card>
-            <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-              <FiTrendingUp className="text-accent-400" />
-              Attribute Details
-            </h2>
-            <div className="space-y-4">
-              {[
-                { key: 'pace', label: 'Pace', abbr: 'PAC', color: 'bg-green-500', desc: 'Sprint Speed & Acceleration' },
-                { key: 'shooting', label: 'Shooting', abbr: 'SHO', color: 'bg-red-500', desc: 'Shot Power & Accuracy' },
-                { key: 'passing', label: 'Passing', abbr: 'PAS', color: 'bg-blue-500', desc: 'Vision & Ball Control' },
-                { key: 'dribbling', label: 'Dribbling', abbr: 'DRI', color: 'bg-purple-500', desc: 'Ball Control & Agility' },
-                { key: 'defending', label: 'Defending', abbr: 'DEF', color: 'bg-yellow-500', desc: 'Tackling & Positioning' },
-                { key: 'physical', label: 'Physical', abbr: 'PHY', color: 'bg-orange-500', desc: 'Strength & Stamina' },
-              ].map(({ key, label, abbr, color, desc }) => {
-                const value = isEditing ? editedStats[key] : (player_attributes[key] || 50);
-                const percentage = (value / 99) * 100;
-
-                return (
-                  <div key={key} className="group">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <span className={`w-10 h-10 ${color} rounded-lg flex items-center justify-center text-white font-bold text-sm`}>
-                          {abbr}
-                        </span>
-                        <div>
-                          <p className="font-semibold text-white">{label}</p>
-                          <p className="text-xs text-dark-400">{desc}</p>
-                        </div>
-                      </div>
-                      {isEditing ? (
-                        <input
-                          type="number"
-                          min="1"
-                          max="99"
-                          value={value}
-                          onChange={(e) => handleStatChange(key, e.target.value)}
-                          className="w-16 px-2 py-1 bg-dark-700 border border-dark-600 rounded-lg text-white text-center font-bold focus:outline-none focus:border-primary-500"
-                        />
+            {/* Current Team */}
+            {user.team && (
+              <div className="bg-[#0d1219] border border-[#1c2430] rounded-lg overflow-hidden">
+                <div className="px-4 py-3 border-b border-[#1c2430]">
+                  <span className="text-xs uppercase tracking-wider text-[#64748b]">Current Team</span>
+                </div>
+                <div className="p-4">
+                  <Link
+                    to={`/teams/${user.team._id}`}
+                    className="flex items-center gap-4 p-4 bg-[#141c28] rounded-lg border border-[#2a3a4d] hover:border-[#22c55e]/30 transition-colors"
+                  >
+                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#22c55e]/20 to-[#22c55e]/5 border border-[#22c55e]/30 flex items-center justify-center">
+                      {user.team.logo ? (
+                        <img src={user.team.logo} alt={user.team.team_name} className="w-full h-full object-cover rounded-xl" />
                       ) : (
-                        <span className={`text-2xl font-bold ${value >= 80 ? 'text-green-400' : value >= 60 ? 'text-yellow-400' : 'text-dark-300'}`}>
-                          {value}
-                        </span>
+                        <GiWhistle className="w-7 h-7 text-[#4ade80]" />
                       )}
                     </div>
-                    <div className="h-2 bg-dark-700 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full ${color} transition-all duration-500 ease-out`}
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-        </div>
-
-        {/* Current Team Info */}
-        {user.team && (
-          <Card className="mt-8">
-            <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-              <FiUsers className="text-primary-400" />
-              Current Team
-            </h2>
-            <Link
-              to={`/teams/${user.team._id}`}
-              className="flex items-center gap-4 p-4 bg-dark-800/50 rounded-xl hover:bg-dark-700/50 transition-colors"
-            >
-              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center">
-                {user.team.logo ? (
-                  <img
-                    src={user.team.logo}
-                    alt={user.team.team_name}
-                    className="w-full h-full object-cover rounded-xl"
-                  />
-                ) : (
-                  <GiWhistle className="w-8 h-8 text-white" />
-                )}
-              </div>
-              <div>
-                <p className="text-lg font-semibold text-white">{user.team.team_name}</p>
-                <p className="text-sm text-dark-400 capitalize">{user.team_role || 'Member'}</p>
-              </div>
-            </Link>
-          </Card>
-        )}
-
-        {/* Team History */}
-        {user.team_history && user.team_history.length > 0 && (
-          <Card className="mt-8">
-            <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-              <FiClock className="text-dark-400" />
-              Team History
-            </h2>
-            <div className="space-y-3">
-              {user.team_history.map((history, index) => {
-                const joinDate = history.joined_at ? new Date(history.joined_at).toLocaleDateString() : 'Unknown';
-                const leftDate = history.left_at ? new Date(history.left_at).toLocaleDateString() : 'Present';
-
-                return (
-                  <div
-                    key={index}
-                    className="flex items-center gap-4 p-4 bg-dark-800/50 rounded-xl"
-                  >
-                    <div className="w-12 h-12 rounded-xl bg-dark-700 flex items-center justify-center">
-                      <GiWhistle className="w-6 h-6 text-dark-400" />
-                    </div>
                     <div className="flex-1">
-                      <p className="text-white font-medium">{history.team_name || 'Unknown Team'}</p>
-                      <p className="text-sm text-dark-400 capitalize">{history.role || 'Member'}</p>
+                      <p className="text-lg font-semibold text-white">{user.team.team_name}</p>
+                      <p className="text-sm text-[#64748b] capitalize">{user.team_role || 'Member'}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs text-dark-500">{joinDate} - {leftDate}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-        )}
+                    <FiArrowLeft className="w-5 h-5 text-[#64748b] rotate-180" />
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {/* Team History */}
+            {user.team_history && user.team_history.length > 0 && (
+              <div className="bg-[#0d1219] border border-[#1c2430] rounded-lg overflow-hidden">
+                <div className="px-4 py-3 border-b border-[#1c2430] flex items-center gap-3">
+                  <FiClock className="w-4 h-4 text-[#64748b]" />
+                  <span className="text-xs uppercase tracking-wider text-[#64748b]">Team History</span>
+                </div>
+                <div className="p-4 space-y-3">
+                  {user.team_history.map((history, index) => (
+                    <HistoryRow
+                      key={index}
+                      teamName={history.team_name || 'Unknown Team'}
+                      role={history.role || 'Member'}
+                      joinDate={history.joined_at ? new Date(history.joined_at).toLocaleDateString() : 'Unknown'}
+                      leftDate={history.left_at ? new Date(history.left_at).toLocaleDateString() : 'Present'}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
