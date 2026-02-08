@@ -2,81 +2,153 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
 const userSchema = new mongoose.Schema({
-    username: {
-       type: String,
-       required: [true, 'Username is required'],
-       trim: true
+  username: {
+    type: String,
+    required: [true, 'Username is required'],
+    unique: true,
+    trim: true,
+    minlength: [3, 'Username must be at least 3 characters'],
+    maxlength: [30, 'Username cannot exceed 30 characters']
+  },
+  first_name: {
+    type: String,
+    required: [true, 'First name is required'],
+    trim: true,
+    maxlength: [50, 'First name cannot exceed 50 characters']
+  },
+  last_name: {
+    type: String,
+    required: [true, 'Last name is required'],
+    trim: true,
+    maxlength: [50, 'Last name cannot exceed 50 characters']
+  },
+  email: {
+    type: String,
+    required: [true, 'Email is required'],
+    unique: true,
+    trim: true,
+    lowercase: true,
+    match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email']
+  },
+  date_of_birth: {
+    type: Date,
+    required: [true, 'Date of birth is required']
+  },
+  email_verified: {
+    type: Boolean,
+    default: false
+  },
+  email_verification_token: {
+    type: String,
+    default: null
+  },
+  email_verification_expires: {
+    type: Date,
+    default: null
+  },
+  password_reset_token: {
+    type: String,
+    default: null
+  },
+  password_reset_expires: {
+    type: Date,
+    default: null
+  },
+  password: {
+    type: String,
+    required: [true, 'Password is required'],
+    minlength: [6, 'Password must be at least 6 characters'],
+    select: false
+  },
+  user_type: {
+    type: String,
+    required: [true, 'User type is required'],
+    enum: {
+      values: ['player', 'manager', 'admin'],
+      message: 'User type must be player, manager, or admin'
     },
-    first_name:{
-        type: String,
-        required:[true, "No first name"]
-    },
-    last_name:{
-        type: String,
-        required:[true, "No last name"]
-    },
-    email: {
-        type: String,
-        required: [true, 'Email is required'],
-        unique: true,
-        trim: true
-    },
-    password: {
-        type: String,
-        required: [true, 'Password is required'],
-        trim: true,
-        select: false
-    },
-    user_type: {
-        type: String,
-        required: [true, 'User type is required']
-    }, 
-    created_at: {
-        type: Date,
-        default: Date.now
-    },
-    updated_at:{
-        type: Date,
-        default: Date.now
-    },
-    games_played:{
-        type: Number
-    },
-    goals: {
-        type: Number
-    },
-    assists:{
-        type: Number
-    },
-    passes:{
-        type: Number
-    },
-    team_role:{
-        type: String
-    }
-    //Add a field for image upload
-})
+    default: 'player'
+  },
+  avatar: {
+    type: String,
+    default: ''
+  },
+  bio: {
+    type: String,
+    maxlength: [500, 'Bio cannot exceed 500 characters'],
+    default: ''
+  },
+  location: {
+    type: String,
+    default: ''
+  },
+  phone: {
+    type: String,
+    default: ''
+  },
+  position: {
+    type: String,
+    enum: ['goalkeeper', 'defender', 'midfielder', 'forward', ''],
+    default: ''
+  },
+  team: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Team',
+    default: null
+  },
+  team_role: {
+    type: String,
+    enum: ['owner', 'captain', 'member', ''],
+    default: ''
+  },
+  stats: {
+    games_played: { type: Number, default: 0 },
+    goals: { type: Number, default: 0 },
+    assists: { type: Number, default: 0 },
+    clean_sheets: { type: Number, default: 0 }
+  },
+  notifications: {
+    email: { type: Boolean, default: true },
+    push: { type: Boolean, default: true }
+  },
+  is_active: {
+    type: Boolean,
+    default: true
+  }
+}, {
+  timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
+});
 
+// Index for search
+userSchema.index({ username: 'text', first_name: 'text', last_name: 'text' });
+
+// Hash password before saving
 userSchema.pre('save', async function(next) {
-  try {
-    this.updated_at = Date.now();
+  if (!this.isModified('password')) {
+    return next();
+  }
 
-    if (!this.isModified('password')) return;
-    
+  try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
-     
+    next();
   } catch (error) {
-    next(error); 
+    next(error);
   }
 });
 
+// Compare password method
 userSchema.methods.isValidPassword = async function(password) {
-  try {
-    return await bcrypt.compare(password, this.password);
-  } catch (error) {
-    throw new Error('Password comparison failed');
-  }
+  return bcrypt.compare(password, this.password);
 };
+
+// Get full name virtual
+userSchema.virtual('full_name').get(function() {
+  return `${this.first_name} ${this.last_name}`;
+});
+
+// Ensure virtuals are included in JSON
+userSchema.set('toJSON', { virtuals: true });
+userSchema.set('toObject', { virtuals: true });
 
 module.exports = mongoose.model('User', userSchema);

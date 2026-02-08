@@ -1,31 +1,157 @@
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const cookieParser = require('cookie-parser');
 
-const DB_URL = "mongodb+srv://nguyensteven578_db_user:KipuXKRBlZistryc@clustercomp3123.qnimjux.mongodb.net/?appName=ClusterComp3123";
-const PORT = 8046;
+// Import routes
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
+const eventRoutes = require('./routes/eventRoutes');
+const teamRoutes = require('./routes/teamRoutes');
+const classifiedRoutes = require('./routes/classifiedRoutes');
+const fieldRoutes = require('./routes/fieldRoutes');
+const bookingRoutes = require('./routes/bookingRoutes');
+const messageRoutes = require('./routes/messageRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+// Environment variables
+const PORT = process.env.PORT || 8046;
+const MONGODB_URI = process.env.MONGODB_URI;
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
-app.use(function(req, res, next) {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-  next();
-});
+// Security middleware
+app.use(helmet());
 
+// CORS configuration
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+};
+app.use(cors(corsOptions));
+
+// Logging
+if (NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+}
+
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// Health check route
 app.get('/', (req, res) => {
-    res.send("<h1>Capstone 2 Soccer Connect App</h1>");
+  res.json({
+    message: 'Soccer Connect API',
+    version: '1.0.0',
+    status: 'running',
+    environment: NODE_ENV
+  });
 });
 
-mongoose.connect(DB_URL).then(() => {
-    console.log("Successfully connected to the database mongoDB Atlas Server");    
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/teams', teamRoutes);
+app.use('/api/classifieds', classifiedRoutes);
+app.use('/api/fields', fieldRoutes);
+app.use('/api/bookings', bookingRoutes);
+app.use('/api/messages', messageRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/admin', adminRoutes);
+
+// 404 handler
+app.use((req, res, next) => {
+  res.status(404).json({
+    success: false,
+    message: `Route ${req.originalUrl} not found`
+  });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+
+  // Mongoose validation error
+  if (err.name === 'ValidationError') {
+    const messages = Object.values(err.errors).map(e => e.message);
+    return res.status(400).json({
+      success: false,
+      message: 'Validation Error',
+      errors: messages
+    });
+  }
+
+  // Mongoose duplicate key error
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyPattern)[0];
+    return res.status(400).json({
+      success: false,
+      message: `${field} already exists`
+    });
+  }
+
+  // JWT errors
+  if (err.name === 'JsonWebTokenError') {
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid token'
+    });
+  }
+
+  if (err.name === 'TokenExpiredError') {
+    return res.status(401).json({
+      success: false,
+      message: 'Token expired'
+    });
+  }
+
+  // Default error
+  res.status(err.statusCode || 500).json({
+    success: false,
+    message: err.message || 'Internal Server Error',
+    ...(NODE_ENV === 'development' && { stack: err.stack })
+  });
+});
+
+// Database connection and server start
+const connectDB = async () => {
+  try {
+    await mongoose.connect(MONGODB_URI);
+    console.log('Successfully connected to MongoDB');
+
     app.listen(PORT, () => {
-    console.log("Server is listening on port 8046");
+      console.log(`Server running in ${NODE_ENV} mode on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error('Database connection error:', err.message);
+    process.exit(1);
+  }
+};
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled Rejection:', err);
+  process.exit(1);
 });
-}).catch(err => {
-    console.log('Could not connect to the database. Exiting now...', err);
-    process.exit();
-});
+
+// Export for testing
+module.exports = { app, connectDB };
+
+// Start server if not in test mode
+if (NODE_ENV !== 'test') {
+  connectDB();
+}
