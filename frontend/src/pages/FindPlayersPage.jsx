@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { FiSearch, FiFilter, FiSend, FiChevronLeft, FiChevronRight, FiMessageSquare, FiX } from 'react-icons/fi';
+import { FiSearch, FiFilter, FiSend, FiChevronLeft, FiChevronRight, FiMessageSquare, FiLock } from 'react-icons/fi';
 import useAuthStore from '../store/authStore';
 import { usersAPI, teamsAPI, messagesAPI } from '../api';
 
@@ -10,6 +10,7 @@ const FindPlayersPage = () => {
   const { user, isAuthenticated } = useAuthStore();
   const [players, setPlayers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [authRequired, setAuthRequired] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({
     position: '',
@@ -38,6 +39,7 @@ const FindPlayersPage = () => {
 
   const fetchPlayers = useCallback(async () => {
     setIsLoading(true);
+    setAuthRequired(false);
     try {
       const params = { page, limit: 20, ...filters };
       if (searchQuery) params.search = searchQuery;
@@ -46,7 +48,11 @@ const FindPlayersPage = () => {
       setPagination(response.data?.pagination || response.pagination);
     } catch (error) {
       console.error('Error fetching players:', error);
-      toast.error('Failed to load players');
+      if (error.response?.status === 401) {
+        setAuthRequired(true);
+      } else {
+        toast.error('Failed to load players');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -234,6 +240,20 @@ const FindPlayersPage = () => {
             <div className="flex flex-col items-center justify-center py-16">
               <div className="w-12 h-12 border-2 border-[#22c55e] border-t-transparent rounded-full animate-spin mb-4" />
               <p className="text-[#64748b]">Loading players...</p>
+            </div>
+          ) : authRequired ? (
+            <div className="text-center py-16">
+              <div className="w-16 h-16 rounded-xl bg-[#141c28] border border-[#2a3a4d] flex items-center justify-center mx-auto mb-4">
+                <FiLock className="w-8 h-8 text-[#f59e0b]" />
+              </div>
+              <p className="text-white font-medium mb-2">Sign in required</p>
+              <p className="text-[#64748b] text-sm mb-6">You need to be logged in to browse players</p>
+              <Link
+                to="/login"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-[#22c55e] text-white font-medium rounded-lg hover:bg-[#1a9f4a] transition-colors"
+              >
+                Sign In
+              </Link>
             </div>
           ) : players.length === 0 ? (
             <div className="text-center py-16">
