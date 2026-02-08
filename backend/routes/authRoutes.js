@@ -134,6 +134,11 @@ router.post('/login', loginValidation, async (req, res, next) => {
       });
     }
 
+    // Set user as online
+    user.is_online = true;
+    user.last_active = new Date();
+    await user.save({ validateBeforeSave: false });
+
     // Generate token
     const token = generateToken(user._id);
 
@@ -165,7 +170,17 @@ router.post('/login', loginValidation, async (req, res, next) => {
 // @route   POST /api/auth/logout
 // @desc    Logout user
 // @access  Private
-router.post('/logout', (req, res) => {
+router.post('/logout', protect, async (req, res) => {
+  try {
+    // Set user as offline
+    await User.findByIdAndUpdate(req.user._id, {
+      is_online: false,
+      last_active: new Date()
+    });
+  } catch (error) {
+    console.error('Error updating online status:', error);
+  }
+
   res.cookie('token', '', {
     httpOnly: true,
     expires: new Date(0)
@@ -184,12 +199,34 @@ router.get('/me', protect, async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id).populate('team', 'team_name logo');
 
+    // Update last_active as heartbeat
+    await User.findByIdAndUpdate(req.user._id, {
+      is_online: true,
+      last_active: new Date()
+    });
+
     res.json({
       success: true,
       data: { user }
     });
   } catch (error) {
     next(error);
+  }
+});
+
+// @route   POST /api/auth/heartbeat
+// @desc    Update user online status (called periodically by frontend)
+// @access  Private
+router.post('/heartbeat', protect, async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.user._id, {
+      is_online: true,
+      last_active: new Date()
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false });
   }
 });
 

@@ -28,9 +28,21 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // Only auto-logout on 401 if:
+    // 1. It's a 401 error
+    // 2. It's not from auth endpoints (login/register should handle their own errors)
+    // 3. We have a token (meaning we thought we were logged in)
+    const isAuthEndpoint = error.config?.url?.includes('/auth/');
+    const hasToken = localStorage.getItem('token');
+
+    if (error.response?.status === 401 && !isAuthEndpoint && hasToken) {
+      // Token is invalid/expired - clear it but don't force redirect
+      // Let the app's auth state handle the redirect gracefully
       localStorage.removeItem('token');
-      window.location.href = '/login';
+      // Only redirect if not already on login page
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

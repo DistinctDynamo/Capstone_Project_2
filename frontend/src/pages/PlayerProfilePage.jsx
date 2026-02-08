@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import {
   FiArrowLeft,
@@ -11,16 +11,20 @@ import {
   FiX,
   FiTarget,
   FiTrendingUp,
+  FiMessageSquare,
+  FiSend,
+  FiClock,
 } from 'react-icons/fi';
 import { GiSoccerBall, GiSoccerKick, GiWhistle } from 'react-icons/gi';
 import { Card, Badge, Button, Loading, Modal } from '../components/common';
 import PlayerStatsRadar from '../components/player/PlayerStatsRadar';
 import PlayerCard from '../components/player/PlayerCard';
 import useAuthStore from '../store/authStore';
-import { usersAPI } from '../api';
+import { usersAPI, messagesAPI, teamsAPI } from '../api';
 
 const PlayerProfilePage = () => {
-  const { id } = useParams();
+  const navigate = useNavigate();
+  const { id: paramId } = useParams();
   const { user: currentUser, isAuthenticated } = useAuthStore();
   const [playerData, setPlayerData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,14 +32,48 @@ const PlayerProfilePage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [editedStats, setEditedStats] = useState({});
   const [showCardReveal, setShowCardReveal] = useState(true);
+  const [myTeam, setMyTeam] = useState(null);
+  const [isMessaging, setIsMessaging] = useState(false);
+  const [isInviting, setIsInviting] = useState(false);
 
-  const isOwnProfile = currentUser?._id === id;
+  // Handle "me" route - use current user's ID
+  const playerId = paramId === 'me' ? currentUser?._id : paramId;
+  const isOwnProfile = currentUser?._id === playerId || paramId === 'me';
+
+  // Fetch current user's team for invite capability
+  useEffect(() => {
+    const fetchMyTeam = async () => {
+      if (!isAuthenticated || !currentUser?.team) return;
+      try {
+        const response = await teamsAPI.getMyTeam();
+        setMyTeam(response.data?.team || response.team);
+      } catch (error) {
+        console.error('Error fetching team:', error);
+      }
+    };
+    fetchMyTeam();
+  }, [isAuthenticated, currentUser]);
 
   useEffect(() => {
     const fetchPlayerData = async () => {
+      // Wait for user to load if viewing own profile
+      if (paramId === 'me' && !currentUser?._id) {
+        if (!isAuthenticated) {
+          toast.error('Please log in to view your profile');
+          setIsLoading(false);
+          return;
+        }
+        return; // Wait for currentUser to be populated
+      }
+
+      if (!playerId) {
+        setIsLoading(false);
+        return;
+      }
+
       try {
         setIsLoading(true);
-        const response = await usersAPI.getPlayerStats(id);
+        const response = await usersAPI.getPlayerStats(playerId);
         setPlayerData(response.data);
         setEditedStats(response.data.player_attributes || {});
 
@@ -44,14 +82,20 @@ const PlayerProfilePage = () => {
         setTimeout(() => setShowCardReveal(false), 2000);
       } catch (error) {
         console.error('Error fetching player data:', error);
-        toast.error('Failed to load player profile');
+        if (error.response?.status === 400) {
+          toast.error('Invalid player ID');
+        } else if (error.response?.status === 404) {
+          toast.error('Player not found');
+        } else {
+          toast.error('Failed to load player profile');
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchPlayerData();
-  }, [id]);
+  }, [playerId, paramId, currentUser, isAuthenticated]);
 
   // Calculate overall rating
   const overallRating = useMemo(() => {
@@ -126,7 +170,7 @@ const PlayerProfilePage = () => {
       await usersAPI.updatePlayerStats(editedStats);
       toast.success('Player attributes updated!');
       // Refresh data
-      const response = await usersAPI.getPlayerStats(id);
+      const response = await usersAPI.getPlayerStats(playerId);
       setPlayerData(response.data);
       setIsEditing(false);
     } catch (error) {
@@ -136,6 +180,43 @@ const PlayerProfilePage = () => {
       setIsSaving(false);
     }
   };
+
+  // Handle message player
+  const handleMessagePlayer = async () => {
+    if (!isAuthenticated) {
+      toast.error('Please login to message players');
+      return;
+    }
+    setIsMessaging(true);
+    try {
+      const response = await messagesAPI.createConversation({ participantId: playerId, type: 'direct' });
+      const conversation = response.data?.conversation || response.conversation;
+      navigate(`/messages?conversation=${conversation._id || conversation.id}`);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to start conversation');
+    } finally {
+      setIsMessaging(false);
+    }
+  };
+
+  // Handle invite player
+  const handleInvitePlayer = async () => {
+    if (!myTeam) {
+      toast.error('You need a team to invite players');
+      return;
+    }
+    setIsInviting(true);
+    try {
+      await teamsAPI.invite(myTeam._id || myTeam.id, playerId);
+      toast.success('Invitation sent!');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to invite player');
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
+  const canInvite = myTeam && ['owner', 'captain'].includes(currentUser?.team_role);
 
   if (isLoading) {
     return (
@@ -290,41 +371,68 @@ const PlayerProfilePage = () => {
                   </div>
                 </div>
 
-                {/* Edit button for own profile */}
-                {isOwnProfile && isAuthenticated && (
-                  <div className="flex gap-3 justify-center lg:justify-start">
-                    {isEditing ? (
-                      <>
-                        <Button
-                          variant="primary"
-                          onClick={handleSaveStats}
-                          isLoading={isSaving}
-                          leftIcon={<FiSave />}
-                        >
-                          Save Changes
-                        </Button>
+                {/* Action buttons */}
+                <div className="flex flex-wrap gap-3 justify-center lg:justify-start">
+                  {/* Edit button for own profile */}
+                  {isOwnProfile && isAuthenticated && (
+                    <>
+                      {isEditing ? (
+                        <>
+                          <Button
+                            variant="primary"
+                            onClick={handleSaveStats}
+                            isLoading={isSaving}
+                            leftIcon={<FiSave />}
+                          >
+                            Save Changes
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            onClick={() => {
+                              setIsEditing(false);
+                              setEditedStats(player_attributes);
+                            }}
+                            leftIcon={<FiX />}
+                          >
+                            Cancel
+                          </Button>
+                        </>
+                      ) : (
                         <Button
                           variant="secondary"
-                          onClick={() => {
-                            setIsEditing(false);
-                            setEditedStats(player_attributes);
-                          }}
-                          leftIcon={<FiX />}
+                          onClick={() => setIsEditing(true)}
+                          leftIcon={<FiEdit2 />}
                         >
-                          Cancel
+                          Edit Attributes
                         </Button>
-                      </>
-                    ) : (
+                      )}
+                    </>
+                  )}
+
+                  {/* Message and Invite buttons for other profiles */}
+                  {!isOwnProfile && isAuthenticated && (
+                    <>
                       <Button
-                        variant="secondary"
-                        onClick={() => setIsEditing(true)}
-                        leftIcon={<FiEdit2 />}
+                        variant="primary"
+                        onClick={handleMessagePlayer}
+                        isLoading={isMessaging}
+                        leftIcon={<FiMessageSquare />}
                       >
-                        Edit Attributes
+                        Message
                       </Button>
-                    )}
-                  </div>
-                )}
+                      {canInvite && !user.team && (
+                        <Button
+                          variant="secondary"
+                          onClick={handleInvitePlayer}
+                          isLoading={isInviting}
+                          leftIcon={<FiSend />}
+                        >
+                          Invite to Team
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -405,12 +513,12 @@ const PlayerProfilePage = () => {
           </Card>
         </div>
 
-        {/* Team Info */}
+        {/* Current Team Info */}
         {user.team && (
           <Card className="mt-8">
             <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
               <FiUsers className="text-primary-400" />
-              Team
+              Current Team
             </h2>
             <Link
               to={`/teams/${user.team._id}`}
@@ -429,9 +537,43 @@ const PlayerProfilePage = () => {
               </div>
               <div>
                 <p className="text-lg font-semibold text-white">{user.team.team_name}</p>
-                <p className="text-sm text-dark-400">View team profile</p>
+                <p className="text-sm text-dark-400 capitalize">{user.team_role || 'Member'}</p>
               </div>
             </Link>
+          </Card>
+        )}
+
+        {/* Team History */}
+        {user.team_history && user.team_history.length > 0 && (
+          <Card className="mt-8">
+            <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+              <FiClock className="text-dark-400" />
+              Team History
+            </h2>
+            <div className="space-y-3">
+              {user.team_history.map((history, index) => {
+                const joinDate = history.joined_at ? new Date(history.joined_at).toLocaleDateString() : 'Unknown';
+                const leftDate = history.left_at ? new Date(history.left_at).toLocaleDateString() : 'Present';
+
+                return (
+                  <div
+                    key={index}
+                    className="flex items-center gap-4 p-4 bg-dark-800/50 rounded-xl"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-dark-700 flex items-center justify-center">
+                      <GiWhistle className="w-6 h-6 text-dark-400" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-white font-medium">{history.team_name || 'Unknown Team'}</p>
+                      <p className="text-sm text-dark-400 capitalize">{history.role || 'Member'}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-dark-500">{joinDate} - {leftDate}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </Card>
         )}
       </div>

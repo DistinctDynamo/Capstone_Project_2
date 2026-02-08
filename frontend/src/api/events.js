@@ -36,6 +36,22 @@ export const eventsAPI = {
     return response.data;
   },
 
+  // New join request system
+  requestJoin: async (id, message = '') => {
+    const response = await api.post(`/events/${id}/join`, { message });
+    return response.data;
+  },
+
+  handleJoinRequest: async (eventId, requestId, status) => {
+    const response = await api.put(`/events/${eventId}/requests/${requestId}`, { status });
+    return response.data;
+  },
+
+  leaveEvent: async (eventId, userId) => {
+    const response = await api.delete(`/events/${eventId}/participants/${userId}`);
+    return response.data;
+  },
+
   getMyEvents: async () => {
     const response = await api.get('/events/user/my-events');
     return response.data;

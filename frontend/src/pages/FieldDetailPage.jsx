@@ -39,6 +39,31 @@ const FieldDetailPage = () => {
         const response = await fieldsAPI.getById(id);
         const fieldData = response.data?.field || response.field || response;
 
+        // Helper to format operating hours
+        const formatHours = (hours) => {
+          if (!hours) return null;
+          // If already formatted as string, return as is
+          if (typeof hours.monday === 'string') return hours;
+          // Convert {open: '06:00', close: '23:00'} to '6:00 AM - 11:00 PM'
+          const formatTime = (time) => {
+            if (!time) return '';
+            const [h, m] = time.split(':').map(Number);
+            const suffix = h >= 12 ? 'PM' : 'AM';
+            const hour = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+            return `${hour}:${m.toString().padStart(2, '0')} ${suffix}`;
+          };
+          const result = {};
+          for (const day of Object.keys(hours)) {
+            const dayHours = hours[day];
+            if (typeof dayHours === 'object' && dayHours.open) {
+              result[day] = `${formatTime(dayHours.open)} - ${formatTime(dayHours.close)}`;
+            } else {
+              result[day] = dayHours;
+            }
+          }
+          return result;
+        };
+
         // Transform API data to match component expectations
         const transformedField = {
           id: fieldData._id || fieldData.id,
@@ -46,20 +71,24 @@ const FieldDetailPage = () => {
           type: fieldData.field_type || fieldData.type || 'outdoor',
           surface: fieldData.surface || 'natural',
           size: fieldData.dimensions || fieldData.size || 'Standard',
-          address: fieldData.location?.address || fieldData.address || 'Unknown',
+          // Handle address as object {street, city} or string
+          address: typeof fieldData.address === 'object'
+            ? `${fieldData.address.street || ''}, ${fieldData.address.city || ''}`.replace(/^, |, $/g, '')
+            : fieldData.location?.address || fieldData.address || 'Unknown',
           coordinates: {
-            lat: fieldData.location?.coordinates?.lat || fieldData.coordinates?.lat || 0,
-            lng: fieldData.location?.coordinates?.lng || fieldData.coordinates?.lng || 0,
+            lat: fieldData.address?.coordinates?.lat || fieldData.location?.coordinates?.lat || 0,
+            lng: fieldData.address?.coordinates?.lng || fieldData.location?.coordinates?.lng || 0,
           },
-          rating: fieldData.rating || 0,
-          reviewCount: fieldData.reviews?.length || fieldData.reviews_count || 0,
-          pricePerHour: fieldData.price_per_hour || fieldData.pricePerHour || 0,
+          // Handle rating as object {average, count} or number
+          rating: typeof fieldData.rating === 'object' ? fieldData.rating.average : (fieldData.rating || 0),
+          reviewCount: typeof fieldData.rating === 'object' ? fieldData.rating.count : (fieldData.reviews?.length || fieldData.reviews_count || 0),
+          pricePerHour: fieldData.hourly_rate || fieldData.price_per_hour || fieldData.pricePerHour || 0,
           description: fieldData.description || 'No description available.',
           amenities: (fieldData.amenities || []).map(a => ({
-            name: a.name || a,
+            name: typeof a === 'string' ? a : (a.name || a),
             available: a.available ?? true,
           })),
-          hours: fieldData.operating_hours || fieldData.hours || {
+          hours: formatHours(fieldData.operating_hours) || fieldData.hours || {
             monday: '6:00 AM - 10:00 PM',
             tuesday: '6:00 AM - 10:00 PM',
             wednesday: '6:00 AM - 10:00 PM',

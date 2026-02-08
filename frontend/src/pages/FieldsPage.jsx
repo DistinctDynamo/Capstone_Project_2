@@ -45,11 +45,15 @@ const FieldsPage = () => {
           name: field.name,
           type: field.field_type || field.type || 'outdoor',
           surface: field.surface || 'natural',
-          address: field.location?.address || field.address || 'Unknown',
-          rating: field.rating || 0,
-          reviews: field.reviews_count || field.reviews || 0,
-          pricePerHour: field.price_per_hour || field.pricePerHour || 0,
-          amenities: field.amenities?.map(a => a.name || a) || [],
+          // Handle address as object {street, city} or string
+          address: typeof field.address === 'object'
+            ? `${field.address.street || ''}, ${field.address.city || ''}`.replace(/^, |, $/g, '')
+            : field.location?.address || field.address || 'Unknown',
+          // Handle rating as object {average, count} or number
+          rating: typeof field.rating === 'object' ? field.rating.average : (field.rating || 0),
+          reviews: typeof field.rating === 'object' ? field.rating.count : (field.reviews_count || field.reviews || 0),
+          pricePerHour: field.hourly_rate || field.price_per_hour || field.pricePerHour || 0,
+          amenities: field.amenities?.map(a => typeof a === 'string' ? a : a.name) || [],
           available: field.is_available ?? field.available ?? true,
           image: field.images?.[0] || null,
           nextAvailable: field.next_available || 'Check availability',

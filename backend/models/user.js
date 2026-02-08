@@ -101,6 +101,19 @@ const userSchema = new mongoose.Schema({
     enum: ['owner', 'captain', 'member', ''],
     default: ''
   },
+  team_history: [{
+    team: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Team'
+    },
+    team_name: String,
+    role: {
+      type: String,
+      enum: ['owner', 'captain', 'member']
+    },
+    joined_at: Date,
+    left_at: Date
+  }],
   stats: {
     games_played: { type: Number, default: 0 },
     goals: { type: Number, default: 0 },
@@ -140,6 +153,15 @@ const userSchema = new mongoose.Schema({
   is_active: {
     type: Boolean,
     default: true
+  },
+  // Online status tracking
+  is_online: {
+    type: Boolean,
+    default: false
+  },
+  last_active: {
+    type: Date,
+    default: Date.now
   }
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }

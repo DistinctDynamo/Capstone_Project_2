@@ -16,7 +16,7 @@ router.get('/conversations', protect, async (req, res, next) => {
       participants: req.user._id,
       is_active: true
     })
-      .populate('participants', 'username first_name last_name avatar')
+      .populate('participants', 'username first_name last_name avatar is_online last_active')
       .populate('team', 'team_name logo')
       .populate('last_message.sender', 'username first_name last_name')
       .sort({ updated_at: -1 });

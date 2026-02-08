@@ -64,6 +64,7 @@ const Navbar = () => {
   const navLinks = [
     { to: '/events', label: 'Events', icon: FiCalendar },
     { to: '/teams', label: 'Teams', icon: FiUsers },
+    { to: '/players', label: 'Players', icon: FiUser },
     { to: '/classifieds', label: 'Classifieds', icon: FiShoppingBag },
     { to: '/fields', label: 'Fields', icon: FiMapPin },
   ];

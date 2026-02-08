@@ -58,30 +58,30 @@ const PlayerCard = ({
   // Size configurations
   const sizeConfig = {
     sm: {
-      card: 'w-32 h-44',
+      card: 'w-36 h-52',
       rating: 'text-2xl',
       position: 'text-xs',
       name: 'text-xs',
-      avatar: 'w-14 h-14',
-      stats: 'text-[10px]',
+      avatar: 'w-16 h-16',
+      stats: 'text-[11px]',
       padding: 'p-2',
     },
     md: {
-      card: 'w-44 h-60',
+      card: 'w-48 h-72',
       rating: 'text-3xl',
       position: 'text-sm',
       name: 'text-sm',
       avatar: 'w-20 h-20',
-      stats: 'text-xs',
+      stats: 'text-sm',
       padding: 'p-3',
     },
     lg: {
-      card: 'w-56 h-80',
-      rating: 'text-4xl',
+      card: 'w-64 h-96',
+      rating: 'text-5xl',
       position: 'text-base',
-      name: 'text-base',
-      avatar: 'w-28 h-28',
-      stats: 'text-sm',
+      name: 'text-lg',
+      avatar: 'w-32 h-32',
+      stats: 'text-base',
       padding: 'p-4',
     },
   };
@@ -193,25 +193,24 @@ const PlayerCard = ({
 
         {/* Avatar */}
         <div className="flex-1 flex items-center justify-center">
-          {player.avatar ? (
+          <div
+            className={`
+              ${config.avatar} rounded-full
+              bg-dark-900/60
+              flex items-center justify-center
+              border-2 border-dark-800/30
+              overflow-hidden
+            `}
+          >
             <img
-              src={player.avatar}
+              src={player.avatar || '/images/player-silhouette.png'}
               alt={playerName}
-              className={`${config.avatar} rounded-full object-cover border-2 border-dark-800/30`}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.target.src = '/images/player-silhouette.png';
+              }}
             />
-          ) : (
-            <div
-              className={`
-                ${config.avatar} rounded-full
-                bg-dark-800/30
-                flex items-center justify-center
-                text-lg font-bold ${style.text}
-                border-2 border-dark-800/30
-              `}
-            >
-              {getInitials(playerName)}
-            </div>
-          )}
+          </div>
         </div>
 
         {/* Player name */}
@@ -226,33 +225,33 @@ const PlayerCard = ({
           )}
         </div>
 
-        {/* Stats row */}
+        {/* Stats - 3x2 Grid for better readability */}
         {showStats && (
           <div className="mt-2 pt-2 border-t border-dark-800/20">
-            <div className="grid grid-cols-6 gap-1 text-center">
-              <div>
-                <div className={`${config.stats} font-bold ${style.text}`}>{attrs.pace || 50}</div>
-                <div className={`${config.stats} ${style.accent}`}>PAC</div>
+            <div className="grid grid-cols-3 gap-x-2 gap-y-1 text-center">
+              <div className="flex items-center justify-center gap-1">
+                <span className={`${config.stats} ${style.accent} font-medium`}>PAC</span>
+                <span className={`${config.stats} font-bold ${style.text}`}>{attrs.pace || 50}</span>
               </div>
-              <div>
-                <div className={`${config.stats} font-bold ${style.text}`}>{attrs.shooting || 50}</div>
-                <div className={`${config.stats} ${style.accent}`}>SHO</div>
+              <div className="flex items-center justify-center gap-1">
+                <span className={`${config.stats} ${style.accent} font-medium`}>SHO</span>
+                <span className={`${config.stats} font-bold ${style.text}`}>{attrs.shooting || 50}</span>
               </div>
-              <div>
-                <div className={`${config.stats} font-bold ${style.text}`}>{attrs.passing || 50}</div>
-                <div className={`${config.stats} ${style.accent}`}>PAS</div>
+              <div className="flex items-center justify-center gap-1">
+                <span className={`${config.stats} ${style.accent} font-medium`}>PAS</span>
+                <span className={`${config.stats} font-bold ${style.text}`}>{attrs.passing || 50}</span>
               </div>
-              <div>
-                <div className={`${config.stats} font-bold ${style.text}`}>{attrs.dribbling || 50}</div>
-                <div className={`${config.stats} ${style.accent}`}>DRI</div>
+              <div className="flex items-center justify-center gap-1">
+                <span className={`${config.stats} ${style.accent} font-medium`}>DRI</span>
+                <span className={`${config.stats} font-bold ${style.text}`}>{attrs.dribbling || 50}</span>
               </div>
-              <div>
-                <div className={`${config.stats} font-bold ${style.text}`}>{attrs.defending || 50}</div>
-                <div className={`${config.stats} ${style.accent}`}>DEF</div>
+              <div className="flex items-center justify-center gap-1">
+                <span className={`${config.stats} ${style.accent} font-medium`}>DEF</span>
+                <span className={`${config.stats} font-bold ${style.text}`}>{attrs.defending || 50}</span>
               </div>
-              <div>
-                <div className={`${config.stats} font-bold ${style.text}`}>{attrs.physical || 50}</div>
-                <div className={`${config.stats} ${style.accent}`}>PHY</div>
+              <div className="flex items-center justify-center gap-1">
+                <span className={`${config.stats} ${style.accent} font-medium`}>PHY</span>
+                <span className={`${config.stats} font-bold ${style.text}`}>{attrs.physical || 50}</span>
               </div>
             </div>
           </div>

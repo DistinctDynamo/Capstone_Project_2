@@ -68,6 +68,28 @@ const eventSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  // Join requests - pending approval by creator
+  join_requests: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    message: {
+      type: String,
+      maxlength: 500
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
+    },
+    requested_at: {
+      type: Date,
+      default: Date.now
+    },
+    responded_at: Date
+  }],
+  // Legacy interested array (kept for backwards compatibility)
   interested: [{
     user: {
       type: mongoose.Schema.Types.ObjectId,
@@ -83,6 +105,22 @@ const eventSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
+  // Approved participants
+  participants: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    joined_at: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  // Whether the event requires approval to join
+  requires_approval: {
+    type: Boolean,
+    default: true
+  },
   is_recurring: {
     type: Boolean,
     default: false
@@ -133,15 +171,25 @@ eventSchema.index({ date: 1, status: 1 });
 eventSchema.index({ 'location.city': 1 });
 eventSchema.index({ title: 'text', description: 'text' });
 
-// Virtual for participants count
+// Virtual for participants count (approved participants)
 eventSchema.virtual('participants_count').get(function() {
+  // Use new participants array if it exists, fallback to interested
+  if (this.participants && this.participants.length > 0) {
+    return this.participants.length;
+  }
   return this.interested.filter(i => i.status === 'going').length;
 });
 
 // Virtual for spots left
 eventSchema.virtual('spots_left').get(function() {
-  const going = this.interested.filter(i => i.status === 'going').length;
-  return this.max_participants - going;
+  const approved = this.participants?.length || this.interested.filter(i => i.status === 'going').length;
+  return this.max_participants - approved;
+});
+
+// Virtual for pending requests count
+eventSchema.virtual('pending_requests_count').get(function() {
+  if (!this.join_requests) return 0;
+  return this.join_requests.filter(r => r.status === 'pending').length;
 });
 
 // Ensure virtuals are included

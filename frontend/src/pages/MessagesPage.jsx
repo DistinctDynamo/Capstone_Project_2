@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import {
   FiSearch,
@@ -7,16 +7,19 @@ import {
   FiMoreVertical,
   FiPaperclip,
   FiSmile,
-  FiPhone,
-  FiVideo,
   FiInfo,
+  FiUsers,
 } from 'react-icons/fi';
 import { Card, Avatar, Loading, EmptyState, Input } from '../components/common';
 import useAuthStore from '../store/authStore';
-import { messagesAPI } from '../api';
+import { messagesAPI, authAPI } from '../api';
+
+const POLL_INTERVAL = 3000; // Poll every 3 seconds
 
 const MessagesPage = () => {
-  const { conversationId } = useParams();
+  const { conversationId: paramConversationId } = useParams();
+  const [searchParams] = useSearchParams();
+  const conversationId = paramConversationId || searchParams.get('conversation');
   const { user } = useAuthStore();
   const [conversations, setConversations] = useState([]);
   const [activeConversation, setActiveConversation] = useState(null);
@@ -27,6 +30,10 @@ const MessagesPage = () => {
   const [isSending, setIsSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const pollIntervalRef = useRef(null);
+  const lastMessageIdRef = useRef(null);
+  const shouldScrollRef = useRef(true);
 
   useEffect(() => {
     const fetchConversations = async () => {
@@ -37,28 +44,58 @@ const MessagesPage = () => {
 
         // Transform API data to match component expectations
         const transformedConversations = conversationsData.map(conv => {
+          const isTeamChat = conv.type === 'team' || conv.conversation_type === 'team';
+
           // Find the other participant (not the current user)
           const otherParticipant = conv.participants?.find(
-            p => (p.user?._id || p.user || p._id) !== user?._id
+            p => (p._id || p) !== user?._id
           ) || conv.participants?.[0];
 
-          const participant = otherParticipant?.user || otherParticipant;
+          // Helper to determine online status based on last_active time
+          const getOnlineStatus = (participant) => {
+            if (!participant?.last_active) return 'offline';
+
+            const lastActive = new Date(participant.last_active);
+            const now = new Date();
+            const minutesAgo = (now - lastActive) / (1000 * 60);
+
+            // Online: active within last 2 minutes (heartbeat interval)
+            if (minutesAgo < 2) return 'online';
+            // Away: active within last 10 minutes
+            if (minutesAgo < 10) return 'away';
+            // Offline: not active for more than 10 minutes
+            return 'offline';
+          };
+
+          // For team chats, use team info; for direct, use participant info
+          let participantData;
+          if (isTeamChat) {
+            participantData = {
+              id: conv.team?._id || conv.team,
+              name: conv.name || conv.team?.team_name || 'Team Chat',
+              avatar: conv.team?.logo || null,
+              status: 'online', // Team chats are always "active"
+              isTeam: true,
+            };
+          } else {
+            participantData = {
+              id: otherParticipant?._id || otherParticipant,
+              name: otherParticipant?.first_name
+                ? `${otherParticipant.first_name} ${otherParticipant.last_name || ''}`.trim()
+                : otherParticipant?.username || 'Unknown',
+              avatar: otherParticipant?.avatar || null,
+              status: getOnlineStatus(otherParticipant),
+              isTeam: false,
+            };
+          }
 
           return {
             id: conv._id || conv.id,
-            participant: {
-              id: participant?._id || participant?.id,
-              name: participant?.first_name
-                ? `${participant.first_name} ${participant.last_name || ''}`.trim()
-                : conv.name || participant?.name || 'Unknown',
-              avatar: participant?.profile_image || null,
-              status: participant?.is_online ? 'online' : 'offline',
-              isTeam: conv.conversation_type === 'team' || conv.isTeam,
-            },
+            participant: participantData,
             lastMessage: {
               text: conv.last_message?.content || conv.lastMessage?.text || 'No messages yet',
-              time: conv.last_message?.createdAt
-                ? formatMessageTime(conv.last_message.createdAt)
+              time: conv.last_message?.sent_at
+                ? formatMessageTime(conv.last_message.sent_at)
                 : conv.lastMessage?.time || '',
               unread: conv.unread_count || 0,
             },
@@ -95,22 +132,14 @@ const MessagesPage = () => {
     }
   };
 
-  useEffect(() => {
-    if (conversationId && conversations.length > 0) {
-      const conv = conversations.find((c) => c.id === conversationId);
-      if (conv) {
-        setActiveConversation(conv);
-        loadMessages(conversationId);
-      }
-    } else if (conversations.length > 0 && !activeConversation) {
-      setActiveConversation(conversations[0]);
-      loadMessages(conversations[0].id);
-    }
-  }, [conversationId, conversations]);
+  // Track the currently loaded conversation to avoid reloading
+  const loadedConversationRef = useRef(null);
 
-  const loadMessages = async (convId) => {
+  const loadMessages = useCallback(async (convId, silent = false) => {
     try {
-      setIsLoadingMessages(true);
+      if (!silent) {
+        setIsLoadingMessages(true);
+      }
       const response = await messagesAPI.getConversation(convId);
       const messagesData = response.data?.messages || response.messages || response.data?.conversation?.messages || [];
 
@@ -124,19 +153,178 @@ const MessagesPage = () => {
           : msg.time || '',
       }));
 
-      setMessages(transformedMessages);
+      // Only update if there are new messages (for silent polling)
+      if (silent) {
+        const lastMsgId = transformedMessages[transformedMessages.length - 1]?.id;
+        if (lastMsgId && lastMsgId !== lastMessageIdRef.current) {
+          shouldScrollRef.current = true; // New message, should scroll
+          setMessages(transformedMessages);
+          lastMessageIdRef.current = lastMsgId;
+        }
+        // If no new messages, don't update state (prevents re-render and scroll)
+      } else {
+        shouldScrollRef.current = true; // Initial load, should scroll
+        setMessages(transformedMessages);
+        lastMessageIdRef.current = transformedMessages[transformedMessages.length - 1]?.id;
+      }
     } catch (error) {
-      console.error('Error loading messages:', error);
-      toast.error('Failed to load messages');
-      setMessages([]);
+      if (!silent) {
+        console.error('Error loading messages:', error);
+        toast.error('Failed to load messages');
+        setMessages([]);
+      }
     } finally {
-      setIsLoadingMessages(false);
+      if (!silent) {
+        setIsLoadingMessages(false);
+      }
     }
-  };
+  }, []);
+
+  // Effect to load messages when conversation changes
+  useEffect(() => {
+    if (conversationId && conversations.length > 0) {
+      const conv = conversations.find((c) => c.id === conversationId);
+      if (conv) {
+        setActiveConversation(conv);
+        // Only load messages if this is a different conversation
+        if (loadedConversationRef.current !== conversationId) {
+          loadedConversationRef.current = conversationId;
+          loadMessages(conversationId);
+        }
+      }
+    } else if (conversations.length > 0 && !activeConversation) {
+      const firstConv = conversations[0];
+      setActiveConversation(firstConv);
+      if (loadedConversationRef.current !== firstConv.id) {
+        loadedConversationRef.current = firstConv.id;
+        loadMessages(firstConv.id);
+      }
+    }
+  }, [conversationId, conversations, loadMessages, activeConversation]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (shouldScrollRef.current && messages.length > 0 && messagesContainerRef.current) {
+      // Scroll within the container, not the whole page
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      shouldScrollRef.current = false;
+    }
   }, [messages]);
+
+  // Polling for new messages
+  useEffect(() => {
+    if (!activeConversation?.id) {
+      // Clear any existing interval when no active conversation
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+      return;
+    }
+
+    // Start polling
+    pollIntervalRef.current = setInterval(() => {
+      loadMessages(activeConversation.id, true);
+    }, POLL_INTERVAL);
+
+    // Cleanup on unmount or when conversation changes
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, [activeConversation?.id, loadMessages]);
+
+  // Also poll conversations list to update unread counts and last messages
+  useEffect(() => {
+    // Helper to determine online status based on last_active time
+    const getOnlineStatus = (participant) => {
+      if (!participant?.last_active) return 'offline';
+
+      const lastActive = new Date(participant.last_active);
+      const now = new Date();
+      const minutesAgo = (now - lastActive) / (1000 * 60);
+
+      // Online: active within last 2 minutes (heartbeat interval)
+      if (minutesAgo < 2) return 'online';
+      // Away: active within last 10 minutes
+      if (minutesAgo < 10) return 'away';
+      // Offline: not active for more than 10 minutes
+      return 'offline';
+    };
+
+    const fetchConversationsSilent = async () => {
+      try {
+        const response = await messagesAPI.getConversations();
+        const conversationsData = response.data?.conversations || response.conversations || [];
+
+        const transformedConversations = conversationsData.map(conv => {
+          const isTeamChat = conv.type === 'team' || conv.conversation_type === 'team';
+          const otherParticipant = conv.participants?.find(
+            p => (p._id || p) !== user?._id
+          ) || conv.participants?.[0];
+
+          let participantData;
+          if (isTeamChat) {
+            participantData = {
+              id: conv.team?._id || conv.team,
+              name: conv.name || conv.team?.team_name || 'Team Chat',
+              avatar: conv.team?.logo || null,
+              status: 'online',
+              isTeam: true,
+            };
+          } else {
+            participantData = {
+              id: otherParticipant?._id || otherParticipant,
+              name: otherParticipant?.first_name
+                ? `${otherParticipant.first_name} ${otherParticipant.last_name || ''}`.trim()
+                : otherParticipant?.username || 'Unknown',
+              avatar: otherParticipant?.avatar || null,
+              status: getOnlineStatus(otherParticipant),
+              isTeam: false,
+            };
+          }
+
+          return {
+            id: conv._id || conv.id,
+            participant: participantData,
+            lastMessage: {
+              text: conv.last_message?.content || conv.lastMessage?.text || 'No messages yet',
+              time: conv.last_message?.sent_at
+                ? formatMessageTime(conv.last_message.sent_at)
+                : conv.lastMessage?.time || '',
+              unread: conv.unread_count || 0,
+            },
+          };
+        });
+
+        setConversations(transformedConversations);
+      } catch (error) {
+        // Silent fail for polling
+        console.error('Silent poll error:', error);
+      }
+    };
+
+    // Also send heartbeat to update our online status
+    const sendHeartbeat = async () => {
+      try {
+        await authAPI.heartbeat();
+      } catch (error) {
+        // Silent fail for heartbeat
+      }
+    };
+
+    const conversationPollInterval = setInterval(fetchConversationsSilent, POLL_INTERVAL * 2);
+    const heartbeatInterval = setInterval(sendHeartbeat, 30000); // Every 30 seconds
+
+    // Send initial heartbeat
+    sendHeartbeat();
+
+    return () => {
+      clearInterval(conversationPollInterval);
+      clearInterval(heartbeatInterval);
+    };
+  }, [user]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -153,6 +341,7 @@ const MessagesPage = () => {
       text: messageContent,
       time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
     };
+    shouldScrollRef.current = true; // Scroll when user sends a message
     setMessages(prev => [...prev, optimisticMsg]);
 
     try {
@@ -206,7 +395,10 @@ const MessagesPage = () => {
                   key={conv.id}
                   onClick={() => {
                     setActiveConversation(conv);
-                    loadMessages(conv.id);
+                    // Only show loading if switching to a different conversation
+                    const isSameConversation = loadedConversationRef.current === conv.id;
+                    loadedConversationRef.current = conv.id;
+                    loadMessages(conv.id, isSameConversation);
                   }}
                   className={`w-full flex items-center gap-3 p-4 hover:bg-dark-800 transition-colors ${
                     activeConversation?.id === conv.id ? 'bg-dark-800' : ''
@@ -254,26 +446,37 @@ const MessagesPage = () => {
             <>
               {/* Chat Header */}
               <div className="flex items-center justify-between p-4 border-b border-dark-700">
-                <div className="flex items-center gap-3">
-                  <Avatar
-                    src={activeConversation.participant.avatar}
-                    name={activeConversation.participant.name}
-                    size="md"
-                  />
-                  <div>
-                    <p className="font-medium text-white">{activeConversation.participant.name}</p>
-                    <p className="text-sm text-dark-400">
-                      {activeConversation.participant.status === 'online' ? 'Online' : 'Offline'}
-                    </p>
+                {activeConversation.participant.isTeam ? (
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary-500/20 flex items-center justify-center">
+                      <FiUsers className="w-5 h-5 text-primary-400" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-white">{activeConversation.participant.name}</p>
+                      <p className="text-sm text-dark-400">Team Chat</p>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <Link
+                    to={`/players/${activeConversation.participant.id}`}
+                    className="flex items-center gap-3 hover:bg-dark-800 rounded-lg p-1 -m-1 transition-colors"
+                  >
+                    <Avatar
+                      src={activeConversation.participant.avatar}
+                      name={activeConversation.participant.name}
+                      size="md"
+                    />
+                    <div>
+                      <p className="font-medium text-white hover:text-primary-400 transition-colors">
+                        {activeConversation.participant.name}
+                      </p>
+                      <p className="text-sm text-dark-400">
+                        {activeConversation.participant.status === 'online' ? 'Online' : 'Click to view profile'}
+                      </p>
+                    </div>
+                  </Link>
+                )}
                 <div className="flex items-center gap-2">
-                  <button className="p-2 text-dark-400 hover:text-white hover:bg-dark-800 rounded-lg transition-colors">
-                    <FiPhone className="w-5 h-5" />
-                  </button>
-                  <button className="p-2 text-dark-400 hover:text-white hover:bg-dark-800 rounded-lg transition-colors">
-                    <FiVideo className="w-5 h-5" />
-                  </button>
                   <button className="p-2 text-dark-400 hover:text-white hover:bg-dark-800 rounded-lg transition-colors">
                     <FiInfo className="w-5 h-5" />
                   </button>
@@ -284,7 +487,7 @@ const MessagesPage = () => {
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
                 {isLoadingMessages ? (
                   <div className="flex items-center justify-center h-full">
                     <Loading size="md" text="Loading messages..." />

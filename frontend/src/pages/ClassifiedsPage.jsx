@@ -59,29 +59,35 @@ const ClassifiedsPage = () => {
         // Build API params from filters
         const params = {};
         if (filters.search) params.search = filters.search;
-        if (filters.category !== 'all') params.ad_type = reverseClassifiedTypeMap[filters.category] || filters.category;
+        if (filters.category !== 'all') params.classified_type = reverseClassifiedTypeMap[filters.category] || filters.category;
 
         const response = await classifiedsAPI.getAll(params);
         const classifiedsData = response.data?.classifieds || response.classifieds || [];
 
         // Transform API data to match component expectations
-        const transformedListings = classifiedsData.map(item => ({
-          id: item._id || item.id,
-          title: item.title,
-          category: classifiedTypeMap[item.ad_type] || item.ad_type || item.category || 'other',
-          price: item.price || 0,
-          condition: item.condition || 'good',
-          location: item.location?.city || item.location || 'Unknown',
-          image: item.images?.[0] || null,
-          description: item.description || '',
-          seller: {
-            name: item.poster?.first_name
-              ? `${item.poster.first_name} ${(item.poster.last_name || '').charAt(0)}.`
-              : item.seller?.name || 'Unknown',
-            rating: item.poster?.rating || item.seller?.rating || 0,
-          },
-          createdAt: item.createdAt || new Date().toISOString(),
-        }));
+        // Backend uses 'classified_type' and 'creator', not 'ad_type' and 'poster'
+        const transformedListings = classifiedsData.map(item => {
+          const creator = item.creator;
+          return {
+            id: item._id || item.id,
+            title: item.title,
+            category: classifiedTypeMap[item.classified_type] || item.classified_type || 'other',
+            price: item.price || 0,
+            condition: item.condition || 'good',
+            location: item.location || 'Unknown',
+            image: item.images?.[0] || null,
+            description: item.description || '',
+            seller: {
+              id: creator?._id || creator?.id,
+              name: creator?.first_name
+                ? `${creator.first_name} ${(creator.last_name || '').charAt(0)}.`
+                : creator?.username || 'Unknown',
+              avatar: creator?.avatar || null,
+              rating: creator?.rating || 0,
+            },
+            createdAt: item.created_at || new Date().toISOString(),
+          };
+        });
 
         setListings(transformedListings);
       } catch (error) {

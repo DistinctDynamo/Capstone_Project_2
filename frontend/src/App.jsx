@@ -30,6 +30,7 @@ import NotFoundPage from './pages/NotFoundPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
 import PlayerProfilePage from './pages/PlayerProfilePage';
+import FindPlayersPage from './pages/FindPlayersPage';
 
 function App() {
   const { initialize, isLoading } = useAuthStore();
@@ -90,6 +91,7 @@ function App() {
           <Route path="teams/:id" element={<TeamDetailPage />} />
           <Route path="fields" element={<FieldsPage />} />
           <Route path="fields/:id" element={<FieldDetailPage />} />
+          <Route path="players" element={<FindPlayersPage />} />
           <Route path="players/:id" element={<PlayerProfilePage />} />
 
           {/* Protected routes */}

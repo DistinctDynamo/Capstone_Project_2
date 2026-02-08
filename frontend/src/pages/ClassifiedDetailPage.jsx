@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import {
   FiMapPin,
@@ -16,11 +16,12 @@ import {
 } from 'react-icons/fi';
 import { Card, Badge, Button, Avatar, Loading, Modal } from '../components/common';
 import useAuthStore from '../store/authStore';
-import { classifiedsAPI } from '../api';
+import { classifiedsAPI, messagesAPI } from '../api';
 
 const ClassifiedDetailPage = () => {
   const { id } = useParams();
-  const { isAuthenticated } = useAuthStore();
+  const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuthStore();
   const [listing, setListing] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showContactModal, setShowContactModal] = useState(false);
@@ -47,28 +48,37 @@ const ClassifiedDetailPage = () => {
         const listingData = response.data?.classified || response.classified || response;
 
         // Transform API data to match component expectations
+        // Backend uses 'creator' and 'classified_type', frontend was expecting 'poster' and 'ad_type'
+        const creator = listingData.creator;
+
         const transformedListing = {
           id: listingData._id || listingData.id,
           title: listingData.title,
-          category: classifiedTypeMap[listingData.ad_type] || listingData.ad_type || 'other',
+          category: classifiedTypeMap[listingData.classified_type] || listingData.classified_type || 'other',
           price: listingData.price || 0,
           condition: listingData.condition || 'good',
-          location: listingData.location?.city || listingData.location || 'Unknown',
+          location: listingData.location || 'Unknown',
           images: listingData.images || [],
           description: listingData.description || 'No description available.',
           seller: {
-            id: listingData.poster?._id || listingData.poster?.id,
-            name: listingData.poster?.first_name
-              ? `${listingData.poster.first_name} ${listingData.poster.last_name || ''}`.trim()
-              : 'Unknown',
-            avatar: listingData.poster?.profile_image || null,
-            rating: listingData.poster?.rating || 0,
-            reviewCount: listingData.poster?.reviews_count || 0,
-            memberSince: listingData.poster?.createdAt || new Date().toISOString(),
-            listingsCount: listingData.poster?.listings_count || 0,
+            id: creator?._id || creator?.id,
+            name: creator?.first_name
+              ? `${creator.first_name} ${creator.last_name || ''}`.trim()
+              : creator?.username || 'Unknown',
+            avatar: creator?.avatar || null,
+            email: creator?.email || null,
+            rating: creator?.rating || 0,
+            reviewCount: creator?.reviews_count || 0,
+            memberSince: creator?.created_at || new Date().toISOString(),
+            listingsCount: creator?.listings_count || 0,
             responseTime: 'Usually responds within a few hours',
           },
-          createdAt: listingData.createdAt || new Date().toISOString(),
+          contactEmail: listingData.contact_email,
+          contactPhone: listingData.contact_phone,
+          positionNeeded: listingData.position_needed,
+          skillLevel: listingData.skill_level,
+          status: listingData.status,
+          createdAt: listingData.created_at || new Date().toISOString(),
           views: listingData.views || 0,
           saved: listingData.saves || 0,
         };
@@ -115,8 +125,14 @@ const ClassifiedDetailPage = () => {
       toast.error('Please login to contact seller');
       return;
     }
+    if (listing?.seller?.id === user?._id) {
+      toast.error('You cannot message yourself');
+      return;
+    }
     setShowContactModal(true);
   };
+
+  const isOwnListing = listing?.seller?.id === user?._id;
 
   if (isLoading) {
     return (
@@ -247,10 +263,16 @@ const ClassifiedDetailPage = () => {
         <div className="space-y-6">
           {/* Action Card */}
           <Card className="sticky top-24">
-            <Button variant="primary" className="w-full mb-4" onClick={handleContact}>
-              <FiMessageSquare />
-              Contact Seller
-            </Button>
+            {isOwnListing ? (
+              <Link to={`/classifieds/${id}/edit`} className="btn-primary w-full mb-4 flex items-center justify-center gap-2">
+                Edit Listing
+              </Link>
+            ) : (
+              <Button variant="primary" className="w-full mb-4" onClick={handleContact}>
+                <FiMessageSquare />
+                Contact Seller
+              </Button>
+            )}
             <div className="flex gap-2">
               <Button
                 variant="secondary"
@@ -299,7 +321,7 @@ const ClassifiedDetailPage = () => {
               </div>
             </div>
             <Link
-              to={`/users/${listing.seller.id}`}
+              to={`/players/${listing.seller.id}`}
               className="btn-secondary w-full mt-4"
             >
               View Profile
@@ -345,10 +367,33 @@ const ClassifiedDetailPage = () => {
                 }
                 setIsSendingMessage(true);
                 try {
-                  await classifiedsAPI.respond(id, contactMessage);
+                  // Create or get existing conversation with the seller
+                  const convResponse = await messagesAPI.createConversation({
+                    participantId: listing.seller.id,
+                    type: 'direct'
+                  });
+
+                  const conversationId = convResponse.data?.conversation?._id || convResponse.data?.conversation?.id;
+
+                  if (!conversationId) {
+                    throw new Error('Failed to create conversation');
+                  }
+
+                  // Send the message about the listing
+                  const messageContent = `[Re: ${listing.title}]\n\n${contactMessage}`;
+                  await messagesAPI.sendMessage(conversationId, messageContent);
+
+                  // Also record the response in the classified
+                  await classifiedsAPI.respond(id, contactMessage).catch(() => {
+                    // Silent fail - the main message was sent
+                  });
+
                   setShowContactModal(false);
                   setContactMessage('');
                   toast.success('Message sent!');
+
+                  // Navigate to the conversation
+                  navigate(`/messages/${conversationId}`);
                 } catch (error) {
                   console.error('Error sending message:', error);
                   toast.error(error.response?.data?.message || 'Failed to send message');

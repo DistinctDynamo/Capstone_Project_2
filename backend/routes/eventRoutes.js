@@ -89,21 +89,56 @@ router.get('/user/my-events', protect, async (req, res, next) => {
 });
 
 // @route   GET /api/events/user/attending
-// @desc    Get events user is attending
+// @desc    Get events user is attending or has pending requests
 // @access  Private
 router.get('/user/attending', protect, async (req, res, next) => {
   try {
+    // Get events where user is a participant or has a pending request
     const events = await Event.find({
-      'interested.user': req.user._id,
-      'interested.status': 'going',
+      $or: [
+        { 'participants.user': req.user._id },
+        { 'join_requests.user': req.user._id },
+        // Legacy support
+        { 'interested.user': req.user._id, 'interested.status': 'going' }
+      ],
       status: { $in: ['upcoming', 'ongoing'] }
     })
       .populate('creator', 'username first_name last_name avatar')
       .sort({ date: 1 });
 
+    // Add user's status to each event
+    const eventsWithStatus = events.map(event => {
+      const eventObj = event.toObject();
+
+      // Check if user is a participant
+      const isParticipant = event.participants?.some(
+        p => p.user.toString() === req.user._id.toString()
+      );
+
+      // Check if user has a pending request
+      const pendingRequest = event.join_requests?.find(
+        r => r.user.toString() === req.user._id.toString() && r.status === 'pending'
+      );
+
+      // Check legacy interested array
+      const isGoing = event.interested?.some(
+        i => i.user.toString() === req.user._id.toString() && i.status === 'going'
+      );
+
+      if (isParticipant || isGoing) {
+        eventObj.user_status = 'approved';
+      } else if (pendingRequest) {
+        eventObj.user_status = 'pending';
+      } else {
+        eventObj.user_status = 'none';
+      }
+
+      return eventObj;
+    });
+
     res.json({
       success: true,
-      data: { events }
+      data: { events: eventsWithStatus }
     });
   } catch (error) {
     next(error);
@@ -118,7 +153,9 @@ router.get('/:id', optionalAuth, mongoIdValidation, async (req, res, next) => {
     const event = await Event.findById(req.params.id)
       .populate('creator', 'username first_name last_name avatar email')
       .populate('team', 'team_name logo')
-      .populate('interested.user', 'username first_name last_name avatar');
+      .populate('interested.user', 'username first_name last_name avatar')
+      .populate('join_requests.user', 'username first_name last_name avatar position')
+      .populate('participants.user', 'username first_name last_name avatar position');
 
     if (!event) {
       return res.status(404).json({
@@ -257,8 +294,210 @@ router.delete('/:id', protect, mongoIdValidation, async (req, res, next) => {
   }
 });
 
+// @route   POST /api/events/:id/join
+// @desc    Request to join an event (pending approval)
+// @access  Private
+router.post('/:id/join', protect, mongoIdValidation, async (req, res, next) => {
+  try {
+    const { message } = req.body;
+
+    const event = await Event.findById(req.params.id);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
+    }
+
+    // Check if event is full
+    const currentCount = event.participants?.length || 0;
+    if (currentCount >= event.max_participants) {
+      return res.status(400).json({
+        success: false,
+        message: 'Event is full'
+      });
+    }
+
+    // Check if already a participant
+    const isParticipant = event.participants?.some(
+      p => p.user.toString() === req.user._id.toString()
+    );
+    if (isParticipant) {
+      return res.status(400).json({
+        success: false,
+        message: 'You are already a participant'
+      });
+    }
+
+    // Check if already has pending request
+    const hasPendingRequest = event.join_requests?.some(
+      r => r.user.toString() === req.user._id.toString() && r.status === 'pending'
+    );
+    if (hasPendingRequest) {
+      return res.status(400).json({
+        success: false,
+        message: 'You already have a pending request'
+      });
+    }
+
+    // If event doesn't require approval, add directly
+    if (!event.requires_approval) {
+      event.participants = event.participants || [];
+      event.participants.push({
+        user: req.user._id,
+        joined_at: new Date()
+      });
+      await event.save();
+
+      return res.status(201).json({
+        success: true,
+        message: 'You have joined the event!',
+        data: { status: 'approved' }
+      });
+    }
+
+    // Add join request
+    event.join_requests = event.join_requests || [];
+    event.join_requests.push({
+      user: req.user._id,
+      message: message || '',
+      status: 'pending',
+      requested_at: new Date()
+    });
+
+    await event.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Join request submitted. Waiting for approval.',
+      data: { status: 'pending' }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// @route   PUT /api/events/:id/requests/:requestId
+// @desc    Accept or reject a join request
+// @access  Private (creator only)
+router.put('/:id/requests/:requestId', protect, async (req, res, next) => {
+  try {
+    const { status } = req.body; // 'approved' or 'rejected'
+
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Status must be approved or rejected'
+      });
+    }
+
+    const event = await Event.findById(req.params.id);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
+    }
+
+    // Check if user is creator
+    if (event.creator.toString() !== req.user._id.toString() && req.user.user_type !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only the event creator can manage requests'
+      });
+    }
+
+    const request = event.join_requests?.id(req.params.requestId);
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: 'Request not found'
+      });
+    }
+
+    if (request.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Request has already been processed'
+      });
+    }
+
+    request.status = status;
+    request.responded_at = new Date();
+
+    if (status === 'approved') {
+      // Check if event is full
+      const currentCount = event.participants?.length || 0;
+      if (currentCount >= event.max_participants) {
+        return res.status(400).json({
+          success: false,
+          message: 'Event is full'
+        });
+      }
+
+      // Add to participants
+      event.participants = event.participants || [];
+      event.participants.push({
+        user: request.user,
+        joined_at: new Date()
+      });
+    }
+
+    await event.save();
+
+    res.json({
+      success: true,
+      message: `Request ${status}`
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// @route   DELETE /api/events/:id/participants/:userId
+// @desc    Remove a participant from event
+// @access  Private (creator or self)
+router.delete('/:id/participants/:userId', protect, async (req, res, next) => {
+  try {
+    const event = await Event.findById(req.params.id);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
+    }
+
+    const isCreator = event.creator.toString() === req.user._id.toString();
+    const isSelf = req.params.userId === req.user._id.toString();
+
+    if (!isCreator && !isSelf && req.user.user_type !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to remove this participant'
+      });
+    }
+
+    event.participants = event.participants?.filter(
+      p => p.user.toString() !== req.params.userId
+    ) || [];
+
+    await event.save();
+
+    res.json({
+      success: true,
+      message: isSelf ? 'You have left the event' : 'Participant removed'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // @route   POST /api/events/:id/interest
-// @desc    Express interest in event
+// @desc    Express interest in event (legacy - kept for backwards compatibility)
 // @access  Private
 router.post('/:id/interest', protect, mongoIdValidation, async (req, res, next) => {
   try {

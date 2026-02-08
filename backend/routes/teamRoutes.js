@@ -1,8 +1,70 @@
 const express = require('express');
 const Team = require('../models/teams');
 const User = require('../models/user');
+const Conversation = require('../models/conversation');
+const Message = require('../models/message');
 const { protect, optionalAuth } = require('../middleware/auth');
 const { teamValidation, mongoIdValidation, paginationValidation } = require('../middleware/validators');
+
+// Helper function to create or get team conversation
+const getOrCreateTeamChat = async (teamId, teamName, memberIds) => {
+  let conversation = await Conversation.findOne({ team: teamId, type: 'team' });
+
+  if (!conversation) {
+    conversation = await Conversation.create({
+      type: 'team',
+      team: teamId,
+      name: `${teamName} Team Chat`,
+      participants: memberIds
+    });
+  }
+
+  return conversation;
+};
+
+// Helper function to add user to team chat
+const addUserToTeamChat = async (teamId, userId, userName) => {
+  const conversation = await Conversation.findOne({ team: teamId, type: 'team' });
+
+  if (conversation) {
+    if (!conversation.participants.includes(userId)) {
+      conversation.participants.push(userId);
+      await conversation.save();
+
+      // Add system message
+      await Message.create({
+        conversation: conversation._id,
+        sender: userId,
+        content: `${userName} joined the team`,
+        message_type: 'system'
+      });
+    }
+  }
+
+  return conversation;
+};
+
+// Helper function to remove user from team chat
+const removeUserFromTeamChat = async (teamId, userId, userName) => {
+  const conversation = await Conversation.findOne({ team: teamId, type: 'team' });
+
+  if (conversation) {
+    conversation.participants = conversation.participants.filter(
+      p => p.toString() !== userId.toString()
+    );
+    await conversation.save();
+
+    // Add system message
+    await Message.create({
+      conversation: conversation._id,
+      sender: userId,
+      content: `${userName} left the team`,
+      message_type: 'system'
+    });
+  }
+
+  return conversation;
+};
 
 const router = express.Router();
 
@@ -205,6 +267,9 @@ router.post('/', protect, teamValidation, async (req, res, next) => {
       team: team._id,
       team_role: 'owner'
     });
+
+    // Create team chat
+    await getOrCreateTeamChat(team._id, team.team_name, [req.user._id]);
 
     const populatedTeam = await Team.findById(team._id)
       .populate('owner', 'username first_name last_name avatar')
@@ -454,10 +519,15 @@ router.put('/:id/applications/:applicationId', protect, async (req, res, next) =
       });
 
       // Update user
-      await User.findByIdAndUpdate(application.user, {
-        team: team._id,
-        team_role: 'member'
-      });
+      const acceptedUser = await User.findByIdAndUpdate(
+        application.user,
+        { team: team._id, team_role: 'member' },
+        { new: true }
+      );
+
+      // Add user to team chat
+      const userName = acceptedUser.first_name || acceptedUser.username || 'A new member';
+      await addUserToTeamChat(team._id, application.user, userName);
     }
 
     await team.save();
@@ -614,6 +684,10 @@ router.put('/:id/invitations/:invitationId', protect, async (req, res, next) => 
         team: team._id,
         team_role: 'member'
       });
+
+      // Add user to team chat
+      const userName = req.user.first_name || req.user.username || 'A new member';
+      await addUserToTeamChat(team._id, req.user._id, userName);
     }
 
     await team.save();
@@ -734,14 +808,28 @@ router.delete('/:id/members/:memberId', protect, async (req, res, next) => {
       });
     }
 
+    // Record team history before removing
+    const userToUpdate = await User.findById(req.params.memberId);
+    if (userToUpdate) {
+      userToUpdate.team_history = userToUpdate.team_history || [];
+      userToUpdate.team_history.push({
+        team: team._id,
+        team_name: team.team_name,
+        role: memberToRemove.role,
+        joined_at: memberToRemove.joined_at,
+        left_at: new Date()
+      });
+      userToUpdate.team = null;
+      userToUpdate.team_role = '';
+      await userToUpdate.save();
+    }
+
     team.members = team.members.filter(m => m.user.toString() !== req.params.memberId);
     await team.save();
 
-    // Update user
-    await User.findByIdAndUpdate(req.params.memberId, {
-      team: null,
-      team_role: ''
-    });
+    // Remove user from team chat
+    const userName = userToUpdate?.first_name || userToUpdate?.username || 'A member';
+    await removeUserFromTeamChat(team._id, req.params.memberId, userName);
 
     res.json({
       success: true,

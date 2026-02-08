@@ -26,7 +26,7 @@ const EventDetailPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [hasJoined, setHasJoined] = useState(false);
+  const [userStatus, setUserStatus] = useState('none'); // 'none', 'pending', 'approved'
 
   // Event type mapping from backend to frontend display
   const eventTypeMap = {
@@ -45,13 +45,72 @@ const EventDetailPage = () => {
         const response = await eventsAPI.getById(id);
         const eventData = response.data?.event || response.event || response;
 
-        // Check if user has already joined
-        const userAttendee = eventData.attendees?.find(
-          a => (a.user?._id || a.user) === user?._id
-        );
-        if (userAttendee && userAttendee.status === 'going') {
-          setHasJoined(true);
+        // Check user's status from all possible sources
+        const userId = user?._id?.toString() || user?._id;
+        if (userId) {
+          // Check new participants array
+          const isParticipant = eventData.participants?.some(
+            p => (p.user?._id || p.user)?.toString() === userId
+          );
+
+          // Check join_requests for pending
+          const pendingRequest = eventData.join_requests?.find(
+            r => (r.user?._id || r.user)?.toString() === userId && r.status === 'pending'
+          );
+
+          // Check legacy interested array
+          const isGoing = eventData.interested?.some(
+            i => (i.user?._id || i.user)?.toString() === userId && i.status === 'going'
+          );
+
+          if (isParticipant || isGoing) {
+            setUserStatus('approved');
+          } else if (pendingRequest) {
+            setUserStatus('pending');
+          } else {
+            setUserStatus('none');
+          }
         }
+
+        // Combine participants from new array and legacy interested array
+        const participantsList = [];
+
+        // Add from new participants array
+        if (eventData.participants) {
+          eventData.participants.forEach(p => {
+            const pUser = p.user || p;
+            participantsList.push({
+              id: pUser._id || pUser,
+              name: pUser.first_name
+                ? `${pUser.first_name} ${pUser.last_name || ''}`.trim()
+                : pUser.username || 'Unknown',
+              avatar: pUser.avatar || null,
+              status: 'going',
+            });
+          });
+        }
+
+        // Add from legacy interested array (only 'going' status)
+        if (eventData.interested) {
+          eventData.interested.forEach(i => {
+            if (i.status === 'going') {
+              const iUser = i.user || i;
+              // Don't add duplicates
+              if (!participantsList.some(p => p.id?.toString() === (iUser._id || iUser)?.toString())) {
+                participantsList.push({
+                  id: iUser._id || iUser,
+                  name: iUser.first_name
+                    ? `${iUser.first_name} ${iUser.last_name || ''}`.trim()
+                    : iUser.username || 'Unknown',
+                  avatar: iUser.avatar || null,
+                  status: 'going',
+                });
+              }
+            }
+          });
+        }
+
+        const creator = eventData.creator || eventData.organizer;
 
         // Transform API data to match component expectations
         const transformedEvent = {
@@ -63,28 +122,28 @@ const EventDetailPage = () => {
           endTime: eventData.end_time || eventData.endTime || 'TBD',
           location: eventData.location?.name || eventData.location || 'TBD',
           address: eventData.location?.address || eventData.address || '',
-          players: eventData.attendees?.filter(a => a.status === 'going')?.length || eventData.players || 0,
-          maxPlayers: eventData.max_participants || eventData.maxPlayers || 0,
+          players: participantsList.length,
+          maxPlayers: eventData.max_participants || eventData.maxPlayers || 22,
           skillLevel: eventData.skill_level || eventData.skillLevel || 'all',
+          requiresApproval: eventData.requires_approval !== false,
           host: {
-            id: eventData.organizer?._id || eventData.organizer?.id,
-            name: eventData.organizer?.first_name
-              ? `${eventData.organizer.first_name} ${eventData.organizer.last_name || ''}`.trim()
-              : eventData.organizer?.name || 'Unknown',
-            avatar: eventData.organizer?.profile_image || null,
-            rating: eventData.organizer?.rating || 0,
-            gamesHosted: eventData.organizer?.stats?.events_organized || 0,
+            id: creator?._id || creator?.id,
+            name: creator?.first_name
+              ? `${creator.first_name} ${creator.last_name || ''}`.trim()
+              : creator?.username || 'Unknown',
+            avatar: creator?.avatar || null,
+            rating: creator?.rating || 0,
+            gamesHosted: creator?.stats?.events_organized || 0,
           },
-          price: eventData.cost || 0,
+          price: eventData.price || eventData.cost || 0,
           description: eventData.description || 'No description available.',
           amenities: eventData.amenities || [],
-          attendees: (eventData.attendees || []).map(a => ({
-            id: a.user?._id || a.user,
-            name: a.user?.first_name
-              ? `${a.user.first_name} ${a.user.last_name || ''}`.trim()
-              : a.name || 'Unknown',
-            avatar: a.user?.profile_image || null,
-            status: a.status || 'going',
+          attendees: participantsList,
+          pendingRequests: (eventData.join_requests || []).filter(r => r.status === 'pending').map(r => ({
+            id: r._id,
+            user: r.user,
+            message: r.message,
+            requestedAt: r.requested_at,
           })),
           comments: (eventData.comments || []).map(c => ({
             id: c._id || c.id,
@@ -99,6 +158,7 @@ const EventDetailPage = () => {
               ? new Date(c.createdAt).toLocaleDateString()
               : c.time || 'Unknown',
           })),
+          isCreator: creator?._id?.toString() === userId || creator?.toString() === userId,
         };
 
         setEvent(transformedEvent);
@@ -121,25 +181,53 @@ const EventDetailPage = () => {
     }
     setIsJoining(true);
     try {
-      await eventsAPI.expressInterest(id, 'going');
-      setHasJoined(true);
-      toast.success('You have joined the event!');
-
-      // Update local state to reflect the change
-      if (event) {
-        setEvent(prev => ({
-          ...prev,
-          players: prev.players + 1,
-          attendees: [
-            ...prev.attendees,
-            {
-              id: user?._id,
-              name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'You',
-              avatar: user?.profile_image || null,
-              status: 'going',
-            },
-          ],
-        }));
+      // Use new join request system if event requires approval
+      if (event?.requiresApproval) {
+        const response = await eventsAPI.requestJoin(id);
+        if (response.data?.status === 'approved') {
+          setUserStatus('approved');
+          toast.success('You have joined the event!');
+          // Update local state
+          if (event) {
+            setEvent(prev => ({
+              ...prev,
+              players: prev.players + 1,
+              attendees: [
+                ...prev.attendees,
+                {
+                  id: user?._id,
+                  name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'You',
+                  avatar: user?.avatar || null,
+                  status: 'going',
+                },
+              ],
+            }));
+          }
+        } else {
+          setUserStatus('pending');
+          toast.success('Join request submitted! Waiting for approval.');
+        }
+      } else {
+        // Use legacy interest system for events without approval
+        await eventsAPI.expressInterest(id, 'going');
+        setUserStatus('approved');
+        toast.success('You have joined the event!');
+        // Update local state
+        if (event) {
+          setEvent(prev => ({
+            ...prev,
+            players: prev.players + 1,
+            attendees: [
+              ...prev.attendees,
+              {
+                id: user?._id,
+                name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'You',
+                avatar: user?.avatar || null,
+                status: 'going',
+              },
+            ],
+          }));
+        }
       }
     } catch (error) {
       console.error('Error joining event:', error);
@@ -152,8 +240,15 @@ const EventDetailPage = () => {
   const handleLeave = async () => {
     setIsJoining(true);
     try {
-      await eventsAPI.removeInterest(id);
-      setHasJoined(false);
+      // Try new system first
+      try {
+        await eventsAPI.leaveEvent(id, user?._id);
+      } catch {
+        // Fallback to legacy system
+        await eventsAPI.removeInterest(id);
+      }
+
+      setUserStatus('none');
       toast.success('You have left the event');
 
       // Update local state to reflect the change
@@ -161,7 +256,7 @@ const EventDetailPage = () => {
         setEvent(prev => ({
           ...prev,
           players: Math.max(0, prev.players - 1),
-          attendees: prev.attendees.filter(a => a.id !== user?._id),
+          attendees: prev.attendees.filter(a => a.id?.toString() !== user?._id?.toString()),
         }));
       }
     } catch (error) {
@@ -391,7 +486,7 @@ const EventDetailPage = () => {
               </div>
             </div>
 
-            {hasJoined ? (
+            {userStatus === 'approved' ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-center gap-2 py-3 px-4 bg-primary-500/20 text-primary-400 rounded-xl">
                   <FiCheck />
@@ -402,6 +497,16 @@ const EventDetailPage = () => {
                   Cancel RSVP
                 </Button>
               </div>
+            ) : userStatus === 'pending' ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-center gap-2 py-3 px-4 bg-yellow-500/20 text-yellow-400 rounded-xl">
+                  <FiClock />
+                  Request Pending
+                </div>
+                <p className="text-xs text-dark-400 text-center">
+                  Waiting for the host to approve your request
+                </p>
+              </div>
             ) : (
               <Button
                 variant="primary"
@@ -410,7 +515,7 @@ const EventDetailPage = () => {
                 onClick={handleJoin}
                 isLoading={isJoining}
               >
-                {isFull ? 'Join Waitlist' : 'Join Event'}
+                {isFull ? 'Join Waitlist' : event?.requiresApproval ? 'Request to Join' : 'Join Event'}
               </Button>
             )}
 

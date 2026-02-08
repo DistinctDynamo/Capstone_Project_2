@@ -209,7 +209,7 @@ const DashboardPage = () => {
                   </Link>
                 </div>
               ) : (
-                upcomingEvents.slice(0, 3).map((event) => (
+                upcomingEvents.slice(0, 5).map((event) => (
                   <Link
                     key={event._id || event.id}
                     to={`/events/${event._id || event.id}`}
@@ -217,9 +217,17 @@ const DashboardPage = () => {
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <h3 className="font-medium text-white group-hover:text-primary-400 transition-colors mb-2">
-                          {event.title}
-                        </h3>
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="font-medium text-white group-hover:text-primary-400 transition-colors">
+                            {event.title}
+                          </h3>
+                          {event.user_status === 'pending' && (
+                            <Badge variant="warning" size="sm">Pending</Badge>
+                          )}
+                          {event.user_status === 'approved' && (
+                            <Badge variant="success" size="sm">Confirmed</Badge>
+                          )}
+                        </div>
                         <div className="flex flex-wrap gap-4 text-sm text-dark-400">
                           <span className="flex items-center gap-1">
                             <FiCalendar className="w-4 h-4" />
@@ -239,11 +247,14 @@ const DashboardPage = () => {
                           </span>
                         </div>
                       </div>
-                      <Badge
-                        variant={(event.attendees?.length || event.players || 0) >= (event.max_participants || event.maxPlayers || 0) ? 'danger' : 'success'}
-                      >
-                        {event.attendees?.length || event.players || 0}/{event.max_participants || event.maxPlayers || '?'}
-                      </Badge>
+                      <div className="text-right">
+                        <Badge
+                          variant={(event.participants?.length || event.attendees?.length || 0) >= (event.max_participants || 0) ? 'danger' : 'gray'}
+                          size="sm"
+                        >
+                          {event.participants?.length || event.attendees?.length || 0}/{event.max_participants || '?'}
+                        </Badge>
+                      </div>
                     </div>
                   </Link>
                 ))

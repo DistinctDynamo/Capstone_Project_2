@@ -22,15 +22,16 @@ const hashPassword = async (password) => {
 // Sample users data - soroush is intentionally kept clean (no team, no events)
 const createUsers = async () => {
   const hashedPassword = await hashPassword('password123');
+  const soroushPassword = await hashPassword('mYTR6RHmXd@WNmz');
 
   const users = [
     // SOROUSH - Your test user with NOTHING assigned
     {
       first_name: 'Soroush',
       last_name: 'Salari',
-      email: 'soroush@test.com',
+      email: 'soroush.salari2023@gmail.com',
       username: 'soroush',
-      password: hashedPassword,
+      password: soroushPassword,
       date_of_birth: new Date('1995-06-15'),
       skill_level: 'intermediate',
       position: 'midfielder',
@@ -224,65 +225,44 @@ const createTeams = async (users) => {
       team_name: 'Toronto FC Legends',
       description: 'Competitive team looking for skilled players. We play in the GTA Premier League and train twice a week.',
       skill_level: 'competitive',
-      captain: marcus._id,
+      owner: marcus._id,
       members: [
-        { user: marcus._id, role: 'captain', position: 'striker', jersey_number: 9 },
-        { user: david._id, role: 'member', position: 'goalkeeper', jersey_number: 1 },
-        { user: aisha._id, role: 'co-captain', position: 'midfielder', jersey_number: 8 },
-        { user: james._id, role: 'member', position: 'defender', jersey_number: 4 }
+        { user: marcus._id, role: 'owner' },
+        { user: david._id, role: 'member' },
+        { user: aisha._id, role: 'captain' },
+        { user: james._id, role: 'member' }
       ],
-      location: { city: 'Toronto', province: 'Ontario' },
-      home_field: 'Downsview Sports Complex',
-      practice_schedule: 'Tuesdays & Thursdays 7-9 PM',
-      stats: { wins: 12, losses: 3, draws: 2, goals_for: 38, goals_against: 15 },
-      recruiting_status: {
-        is_recruiting: true,
-        positions: ['midfielder', 'defender'],
-        message: 'Looking for committed players who can attend regular training sessions.'
-      },
-      founded_year: 2021,
+      location: 'Toronto, Ontario',
+      stats: { games_played: 17, wins: 12, losses: 3, draws: 2, goals_for: 38, goals_against: 15 },
+      is_recruiting: true,
       approval_status: 'approved'
     },
     {
       team_name: 'Mississauga United',
       description: 'Friendly intermediate team focused on having fun while staying competitive. All skill levels welcome!',
       skill_level: 'intermediate',
-      captain: sofia._id,
+      owner: sofia._id,
       members: [
-        { user: sofia._id, role: 'captain', position: 'midfielder', jersey_number: 10 },
-        { user: lisa._id, role: 'member', position: 'midfielder', jersey_number: 7 },
-        { user: emma._id, role: 'member', position: 'defender', jersey_number: 3 }
+        { user: sofia._id, role: 'owner' },
+        { user: lisa._id, role: 'member' },
+        { user: emma._id, role: 'member' }
       ],
-      location: { city: 'Mississauga', province: 'Ontario' },
-      home_field: 'Mississauga Valley Soccer Fields',
-      practice_schedule: 'Saturdays 10 AM - 12 PM',
-      stats: { wins: 8, losses: 5, draws: 4, goals_for: 25, goals_against: 22 },
-      recruiting_status: {
-        is_recruiting: true,
-        positions: ['goalkeeper', 'striker'],
-        message: 'Looking for players who want to improve and have fun!'
-      },
-      founded_year: 2022,
+      location: 'Mississauga, Ontario',
+      stats: { games_played: 17, wins: 8, losses: 5, draws: 4, goals_for: 25, goals_against: 22 },
+      is_recruiting: true,
       approval_status: 'approved'
     },
     {
       team_name: 'Sunday Strikers',
       description: 'Casual recreational team that plays pickup games on Sundays. No commitment required!',
-      skill_level: 'recreational',
-      captain: michael._id,
+      skill_level: 'intermediate',
+      owner: michael._id,
       members: [
-        { user: michael._id, role: 'captain', position: 'striker', jersey_number: 11 }
+        { user: michael._id, role: 'owner' }
       ],
-      location: { city: 'North York', province: 'Ontario' },
-      home_field: 'North York Indoor Soccer',
-      practice_schedule: 'Sundays 2-4 PM',
-      stats: { wins: 5, losses: 7, draws: 3, goals_for: 20, goals_against: 28 },
-      recruiting_status: {
-        is_recruiting: true,
-        positions: ['any'],
-        message: 'Everyone welcome! Just show up and play.'
-      },
-      founded_year: 2023,
+      location: 'North York, Ontario',
+      stats: { games_played: 15, wins: 5, losses: 7, draws: 3, goals_for: 20, goals_against: 28 },
+      is_recruiting: true,
       approval_status: 'approved'
     },
     // A pending team for admin testing
@@ -290,13 +270,12 @@ const createTeams = async (users) => {
       team_name: 'New Stars FC',
       description: 'Brand new team looking to make a name in the league.',
       skill_level: 'intermediate',
-      captain: emma._id,
+      owner: emma._id,
       members: [
-        { user: emma._id, role: 'captain', position: 'defender', jersey_number: 5 }
+        { user: emma._id, role: 'owner' }
       ],
-      location: { city: 'Brampton', province: 'Ontario' },
-      recruiting_status: { is_recruiting: true, positions: ['any'] },
-      founded_year: 2024,
+      location: 'Brampton, Ontario',
+      is_recruiting: true,
       approval_status: 'pending'
     }
   ];
@@ -332,7 +311,7 @@ const createEvents = async (users, fields) => {
       title: 'Weekly Pickup Game - Downsview',
       description: 'Regular weekly pickup game. All skill levels welcome! We split teams fairly and rotate players.',
       event_type: 'pickup_game',
-      organizer: marcus._id,
+      creator: marcus._id,
       date: tomorrow,
       start_time: '19:00',
       end_time: '21:00',
@@ -357,7 +336,7 @@ const createEvents = async (users, fields) => {
       title: 'Intermediate Training Session',
       description: 'Focused training session on passing and movement. Coach-led drills and small-sided games.',
       event_type: 'training',
-      organizer: sofia._id,
+      creator: sofia._id,
       date: nextWeek,
       start_time: '10:00',
       end_time: '12:00',
@@ -379,7 +358,7 @@ const createEvents = async (users, fields) => {
       title: 'Sunday Funday - Casual Kick',
       description: 'No pressure, just fun! Bring your friends and family. We have extra balls and bibs.',
       event_type: 'pickup_game',
-      organizer: michael._id,
+      creator: michael._id,
       date: nextWeek,
       start_time: '14:00',
       end_time: '16:00',
@@ -388,7 +367,7 @@ const createEvents = async (users, fields) => {
         address: '4850 Yonge St, North York'
       },
       max_participants: 20,
-      skill_level: 'recreational',
+      skill_level: 'beginner',
       cost: 0,
       attendees: [
         { user: michael._id, status: 'going' }
@@ -401,7 +380,7 @@ const createEvents = async (users, fields) => {
       title: 'Competitive 7v7 Tournament',
       description: 'Single day tournament with prizes! Teams of 7 compete for glory and bragging rights.',
       event_type: 'tournament',
-      organizer: marcus._id,
+      creator: marcus._id,
       date: in2Weeks,
       start_time: '09:00',
       end_time: '17:00',
@@ -425,7 +404,7 @@ const createEvents = async (users, fields) => {
       title: 'Night League Tryouts',
       description: 'Tryouts for our competitive night league team.',
       event_type: 'tryout',
-      organizer: david._id,
+      creator: david._id,
       date: in2Weeks,
       start_time: '20:00',
       end_time: '22:00',
@@ -459,52 +438,46 @@ const createClassifieds = async (users) => {
     {
       title: 'Nike Mercurial Vapor 15 - Size 10',
       description: 'Barely used Nike Mercurial Vapor 15 Elite boots. Worn only 3 times. Selling because they are too tight for me. Original box included.',
-      ad_type: 'equipment_sale',
-      poster: marcus._id,
+      classified_type: 'equipment_sale',
+      creator: marcus._id,
       price: 180,
-      condition: 'like_new',
-      location: { city: 'Toronto', province: 'Ontario' },
-      contact_method: 'message',
+      location: 'Toronto, Ontario',
       status: 'active'
     },
     {
       title: 'Looking for Striker - Competitive League',
       description: 'Our team needs a clinical finisher for the upcoming fall season. Must be available for Tuesday evening games and Sunday morning training.',
-      ad_type: 'looking_for_players',
-      poster: sofia._id,
-      location: { city: 'Mississauga', province: 'Ontario' },
-      contact_method: 'both',
+      classified_type: 'looking_for_players',
+      creator: sofia._id,
+      location: 'Mississauga, Ontario',
+      position_needed: 'forward',
+      skill_level: 'competitive',
       status: 'active'
     },
     {
       title: 'Free Soccer Balls - Used but Good Condition',
       description: 'Giving away 5 match balls. Some wear but still perfectly usable for training.',
-      ad_type: 'equipment_sale',
-      poster: james._id,
+      classified_type: 'equipment_sale',
+      creator: james._id,
       price: 0,
-      condition: 'good',
-      location: { city: 'Vaughan', province: 'Ontario' },
-      contact_method: 'message',
+      location: 'Vaughan, Ontario',
       status: 'active'
     },
     {
       title: 'Looking for a Team - Recreational Level',
       description: "Hi! I'm new to the area and looking for a friendly team to join. I play defender but can fill in anywhere. Available weekends.",
-      ad_type: 'looking_for_team',
-      poster: emma._id,
-      location: { city: 'Brampton', province: 'Ontario' },
-      contact_method: 'both',
+      classified_type: 'looking_for_team',
+      creator: emma._id,
+      location: 'Brampton, Ontario',
       status: 'active'
     },
     {
       title: 'Goalkeeper Gloves - Adidas Predator',
       description: 'Size 9 goalkeeper gloves. Great grip, used for one season. Minor palm wear.',
-      ad_type: 'equipment_sale',
-      poster: marcus._id,
+      classified_type: 'equipment_sale',
+      creator: marcus._id,
       price: 45,
-      condition: 'good',
-      location: { city: 'Toronto', province: 'Ontario' },
-      contact_method: 'message',
+      location: 'Toronto, Ontario',
       status: 'active'
     }
   ];
@@ -568,7 +541,7 @@ const seed = async () => {
     console.log('SEED COMPLETED SUCCESSFULLY!');
     console.log('='.repeat(50));
     console.log('\nTest accounts:');
-    console.log('  Email: soroush@test.com | Password: password123 (empty user)');
+    console.log('  Email: soroush.salari2023@gmail.com | Password: mYTR6RHmXd@WNmz (empty user)');
     console.log('  Email: admin@soccerconnect.com | Password: password123 (admin)');
     console.log('  Email: marcus@test.com | Password: password123 (has team + events)');
     console.log('\nNote: soroush user has NO team and NO events - perfect for testing empty states!');

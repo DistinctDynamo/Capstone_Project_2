@@ -143,6 +143,9 @@ teamSchema.index({ team_name: 'text', description: 'text', location: 'text' });
 
 // Virtual for member count
 teamSchema.virtual('member_count').get(function() {
+  if (!this.members || !Array.isArray(this.members)) {
+    return 0;
+  }
   return this.members.length;
 });
 

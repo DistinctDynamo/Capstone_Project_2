@@ -42,4 +42,9 @@ export const authAPI = {
     const response = await api.put('/auth/change-password', { currentPassword, newPassword });
     return response.data;
   },
+
+  heartbeat: async () => {
+    const response = await api.post('/auth/heartbeat');
+    return response.data;
+  },
 };

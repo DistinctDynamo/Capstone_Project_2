@@ -17,8 +17,12 @@ router.get('/', protect, paginationValidation, async (req, res, next) => {
     // Build filter
     const filter = { is_active: true };
 
+    // By default exclude admins unless specifically requested
     if (req.query.user_type) {
       filter.user_type = req.query.user_type;
+    } else {
+      // Default to only showing players (not admins)
+      filter.user_type = { $ne: 'admin' };
     }
 
     if (req.query.position) {
@@ -27,6 +31,11 @@ router.get('/', protect, paginationValidation, async (req, res, next) => {
 
     if (req.query.search) {
       filter.$text = { $search: req.query.search };
+    }
+
+    // Filter by available players (no team) if requested
+    if (req.query.available === 'true') {
+      filter.team = null;
     }
 
     const users = await User.find(filter)
@@ -212,7 +221,7 @@ router.put('/:id/stats', protect, mongoIdValidation, async (req, res, next) => {
 router.get('/:id/player-stats', mongoIdValidation, async (req, res, next) => {
   try {
     const user = await User.findById(req.params.id)
-      .select('username first_name last_name avatar position team player_attributes nationality stats')
+      .select('username first_name last_name avatar position team team_role team_history player_attributes nationality stats')
       .populate('team', 'team_name logo');
 
     if (!user) {
@@ -285,6 +294,8 @@ router.get('/:id/player-stats', mongoIdValidation, async (req, res, next) => {
           avatar: user.avatar,
           position: user.position,
           team: user.team,
+          team_role: user.team_role,
+          team_history: user.team_history,
           nationality: user.nationality,
           stats: user.stats
         },

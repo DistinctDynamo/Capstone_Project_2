@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import {
@@ -12,11 +12,13 @@ import {
   FiCheck,
   FiX,
   FiUserPlus,
+  FiSearch,
+  FiSend,
 } from 'react-icons/fi';
 import { GiWhistle, GiSoccerBall } from 'react-icons/gi';
 import { Card, Badge, Button, Avatar, Loading, Modal, EmptyState } from '../components/common';
 import useAuthStore from '../store/authStore';
-import { teamsAPI } from '../api';
+import { teamsAPI, usersAPI } from '../api';
 
 const MyTeamPage = () => {
   const { user } = useAuthStore();
@@ -26,6 +28,12 @@ const MyTeamPage = () => {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [isProcessingRequest, setIsProcessingRequest] = useState(false);
+
+  // Player finder state
+  const [availablePlayers, setAvailablePlayers] = useState([]);
+  const [loadingPlayers, setLoadingPlayers] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [invitingUserId, setInvitingUserId] = useState(null);
 
   useEffect(() => {
     const fetchMyTeam = async () => {
@@ -45,7 +53,7 @@ const MyTeamPage = () => {
           m => (m.user?._id || m.user) === user?._id
         );
         const userRole = userMember?.role || 'member';
-        const isAdmin = userRole === 'captain' || userRole === 'co-captain';
+        const isAdmin = userRole === 'owner' || userRole === 'captain' || userRole === 'co-captain';
 
         // Transform team data
         const transformedTeam = {
@@ -105,6 +113,62 @@ const MyTeamPage = () => {
 
     fetchMyTeam();
   }, [user]);
+
+  // Fetch available players when invite modal opens
+  const fetchAvailablePlayers = useCallback(async () => {
+    setLoadingPlayers(true);
+    try {
+      // Fetch only available players (no team, not admins)
+      const response = await usersAPI.getAll({ limit: 50, available: 'true' });
+      const players = response.data?.users || response.users || [];
+
+      // Also filter out current team members (just in case)
+      const teamMemberIds = team?.roster?.map(m => m.id) || [];
+      const filteredPlayers = players.filter(player => {
+        const playerId = player._id || player.id;
+        return !teamMemberIds.includes(playerId);
+      });
+
+      setAvailablePlayers(filteredPlayers);
+    } catch (error) {
+      console.error('Error fetching players:', error);
+      toast.error('Failed to load players');
+    } finally {
+      setLoadingPlayers(false);
+    }
+  }, [team]);
+
+  useEffect(() => {
+    if (showInviteModal) {
+      fetchAvailablePlayers();
+    }
+  }, [showInviteModal, fetchAvailablePlayers]);
+
+  const handleInvitePlayer = async (playerId) => {
+    if (invitingUserId) return;
+
+    setInvitingUserId(playerId);
+    try {
+      await teamsAPI.invite(team.id, playerId);
+      toast.success('Invitation sent successfully!');
+      // Remove player from list after inviting
+      setAvailablePlayers(prev => prev.filter(p => (p._id || p.id) !== playerId));
+    } catch (error) {
+      console.error('Error inviting player:', error);
+      toast.error(error.response?.data?.message || 'Failed to send invitation');
+    } finally {
+      setInvitingUserId(null);
+    }
+  };
+
+  // Filter players based on search
+  const filteredPlayers = availablePlayers.filter(player => {
+    if (!searchQuery) return true;
+    const fullName = `${player.first_name || ''} ${player.last_name || ''}`.toLowerCase();
+    const username = (player.username || '').toLowerCase();
+    const query = searchQuery.toLowerCase();
+    return fullName.includes(query) || username.includes(query);
+  });
 
   const handleAcceptRequest = async (requestId) => {
     if (isProcessingRequest) return;
@@ -219,9 +283,9 @@ const MyTeamPage = () => {
             <Link to={`/teams/${team.id}`} className="btn-secondary">
               View Public Page
             </Link>
-            <Button variant="primary" onClick={() => setShowInviteModal(true)}>
-              <FiUserPlus /> Invite Players
-            </Button>
+            <Link to="/players" className="btn-primary inline-flex items-center gap-2">
+              <FiUserPlus /> Find Players
+            </Link>
           </div>
         </div>
       </div>
@@ -402,30 +466,91 @@ const MyTeamPage = () => {
         </div>
       )}
 
-      {/* Invite Modal */}
-      <Modal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} title="Invite Players">
+      {/* Invite Modal - Player Finder */}
+      <Modal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} title="Find & Invite Players">
         <div className="space-y-4">
-          <p className="text-dark-400">
-            Invite players to join your team by email.
-          </p>
-          <div>
-            <label className="block text-sm font-medium text-dark-200 mb-2">
-              Email Addresses
-            </label>
-            <textarea
-              className="input min-h-[100px] resize-none"
-              placeholder="Enter email addresses, one per line"
+          {/* Search Input */}
+          <div className="relative">
+            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-dark-400 w-5 h-5" />
+            <input
+              type="text"
+              className="input pl-10 w-full"
+              placeholder="Search players by name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+
+          {/* Players List */}
+          <div className="max-h-[400px] overflow-y-auto space-y-3">
+            {loadingPlayers ? (
+              <div className="flex items-center justify-center py-8">
+                <Loading size="md" text="Loading players..." />
+              </div>
+            ) : filteredPlayers.length === 0 ? (
+              <EmptyState
+                icon={FiUsers}
+                title={searchQuery ? 'No players found' : 'No available players'}
+                description={searchQuery ? 'Try a different search term' : 'All players are currently in teams'}
+              />
+            ) : (
+              filteredPlayers.map((player) => {
+                const playerId = player._id || player.id;
+                const fullName = player.first_name
+                  ? `${player.first_name} ${player.last_name || ''}`.trim()
+                  : player.username;
+                const isInviting = invitingUserId === playerId;
+
+                return (
+                  <div
+                    key={playerId}
+                    className="flex items-center gap-4 p-4 rounded-xl bg-dark-800/50 hover:bg-dark-700/50 transition-colors"
+                  >
+                    <Avatar src={player.avatar} name={fullName} size="md" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-white truncate">{fullName}</p>
+                      <div className="flex items-center gap-2 text-sm text-dark-400">
+                        <span>@{player.username}</span>
+                        {player.position && (
+                          <>
+                            <span>•</span>
+                            <span className="capitalize">{player.position}</span>
+                          </>
+                        )}
+                        {player.skill_level && (
+                          <>
+                            <span>•</span>
+                            <Badge variant="gray" size="sm" className="capitalize">
+                              {player.skill_level}
+                            </Badge>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleInvitePlayer(playerId)}
+                      disabled={isInviting}
+                    >
+                      {isInviting ? (
+                        <Loading size="xs" />
+                      ) : (
+                        <>
+                          <FiSend className="w-4 h-4" />
+                          Invite
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
           <Modal.Actions>
             <Button variant="secondary" onClick={() => setShowInviteModal(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={() => {
-              setShowInviteModal(false);
-              toast.success('Invitations sent!');
-            }}>
-              Send Invites
+              Close
             </Button>
           </Modal.Actions>
         </div>
