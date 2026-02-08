@@ -9,7 +9,8 @@
     "test": "jest --coverage --detectOpenHandles",
     "test:watch": "jest --watch",
     "lint": "eslint .",
-    "seed": "node seeds/fields.js"
+    "seed": "node seeds/index.js",
+    "seed:fields": "node seeds/fields.js"
   },
   "keywords": [
     "soccer",
