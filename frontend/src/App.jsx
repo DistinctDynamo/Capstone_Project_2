@@ -5,7 +5,9 @@ import useAuthStore from './store/authStore';
 
 // Layout
 import Layout from './components/layout/Layout';
+import AdminLayout from './components/layout/AdminLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import AdminProtectedRoute from './components/auth/AdminProtectedRoute';
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -29,6 +31,14 @@ import MessagesPage from './pages/MessagesPage';
 import NotFoundPage from './pages/NotFoundPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
+
+// Admin Pages
+import {
+  AdminDashboardPage,
+  AdminPendingPage,
+  AdminUsersPage,
+  AdminContentPage,
+} from './pages/admin';
 
 function App() {
   const { initialize, isLoading } = useAuthStore();
@@ -104,6 +114,16 @@ function App() {
 
           {/* 404 */}
           <Route path="*" element={<NotFoundPage />} />
+        </Route>
+
+        {/* Admin routes */}
+        <Route element={<AdminProtectedRoute />}>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminDashboardPage />} />
+            <Route path="pending" element={<AdminPendingPage />} />
+            <Route path="users" element={<AdminUsersPage />} />
+            <Route path="content" element={<AdminContentPage />} />
+          </Route>
         </Route>
       </Routes>
     </Router>

@@ -19,3 +19,11 @@ export { default as MessagesPage } from './MessagesPage';
 export { default as NotFoundPage } from './NotFoundPage';
 export { default as TermsPage } from './TermsPage';
 export { default as PrivacyPage } from './PrivacyPage';
+
+// Admin pages
+export {
+  AdminDashboardPage,
+  AdminPendingPage,
+  AdminUsersPage,
+  AdminContentPage,
+} from './admin';
