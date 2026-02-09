@@ -45,10 +45,13 @@ jobs:
         env:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
       - name: Deploy
-        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        id: deploy-backend
+        run: echo "url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})" >> $GITHUB_OUTPUT
         working-directory: ./backend
         env:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
+      - name: Alias Backend
+        run: vercel alias ${{ steps.deploy-backend.outputs.url }} soccer-connect-api.vercel.app --token=${{ secrets.VERCEL_TOKEN }}
 
   deploy-frontend:
     needs: [test-frontend]
@@ -71,7 +74,10 @@ jobs:
         env:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_FRONTEND_PROJECT_ID }}
       - name: Deploy
-        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        id: deploy-frontend
+        run: echo "url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})" >> $GITHUB_OUTPUT
         working-directory: ./frontend
         env:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_FRONTEND_PROJECT_ID }}
+      - name: Alias Frontend
+        run: vercel alias ${{ steps.deploy-frontend.outputs.url }} soccer-connect.vercel.app --token=${{ secrets.VERCEL_TOKEN }}
