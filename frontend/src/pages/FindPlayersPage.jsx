@@ -48,7 +48,11 @@ const FindPlayersPage = () => {
       setPagination(response.data?.pagination || response.pagination);
     } catch (error) {
       console.error('Error fetching players:', error);
-      if (error.response?.status === 401) {
+      // Check for 401 - either from response status or error message
+      const is401 = error.response?.status === 401 ||
+                    error.message?.includes('401') ||
+                    error.response?.data?.message?.toLowerCase().includes('not authorized');
+      if (is401) {
         setAuthRequired(true);
       } else {
         toast.error('Failed to load players');
