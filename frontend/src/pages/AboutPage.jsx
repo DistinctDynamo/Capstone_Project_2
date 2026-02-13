@@ -5,6 +5,7 @@ const team = [
   { name: 'Laurence Liang', studentId: '101485895' },
   { name: 'Kathan Yatin Parikh', studentId: '101471907' },
   { name: 'Steven Nguyen', studentId: '101122624' },
+  { name: 'Kenan Odongo', studentId: null },
 ];
 
 const AboutPage = () => {
@@ -65,7 +66,7 @@ const AboutPage = () => {
                 </div>
                 <div>
                   <p className="text-white font-medium">{member.name}</p>
-                  <p className="text-[#64748b] text-sm font-mono">{member.studentId}</p>
+                  {member.studentId && <p className="text-[#64748b] text-sm font-mono">{member.studentId}</p>}
                 </div>
               </div>
             ))}
