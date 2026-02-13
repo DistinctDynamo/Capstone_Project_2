@@ -33,6 +33,7 @@ import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
 import PlayerProfilePage from './pages/PlayerProfilePage';
 import FindPlayersPage from './pages/FindPlayersPage';
+import AboutPage from './pages/AboutPage';
 
 // Admin Pages
 import {
@@ -102,6 +103,7 @@ function App() {
           <Route path="teams/:id" element={<TeamDetailPage />} />
           <Route path="fields" element={<FieldsPage />} />
           <Route path="fields/:id" element={<FieldDetailPage />} />
+          <Route path="about" element={<AboutPage />} />
           <Route path="players" element={<FindPlayersPage />} />
           <Route path="players/:id" element={<PlayerProfilePage />} />
 
