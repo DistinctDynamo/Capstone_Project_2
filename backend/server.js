@@ -41,7 +41,11 @@ const connectDB = async () => {
   }
 };
 
-// Security middleware
+// Security middleware - relax CSP for Swagger docs page
+app.use('/api-docs', helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
 app.use(helmet());
 
 // CORS configuration
