@@ -74,6 +74,25 @@ const steps = [
   { id: 3, title: 'Security', description: 'Set password' },
 ];
 
+const FormInput = ({ label, icon: Icon, error, helperText, ...props }) => (
+  <div>
+    <label className="block text-xs font-medium text-[#64748b] uppercase tracking-wider mb-2">
+      {label}
+    </label>
+    <div className="relative">
+      {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#64748b]" />}
+      <input
+        className={`w-full ${Icon ? 'pl-12' : 'pl-4'} pr-4 py-3 bg-[#141c28] border rounded-lg text-white placeholder-[#64748b] focus:outline-none focus:border-[#4ade80]/50 transition-colors ${
+          error ? 'border-[#ef4444]' : 'border-[#2a3a4d]'
+        }`}
+        {...props}
+      />
+    </div>
+    {error && <p className="mt-1 text-xs text-[#ef4444]">{error}</p>}
+    {helperText && !error && <p className="mt-1 text-xs text-[#64748b]">{helperText}</p>}
+  </div>
+);
+
 const RegisterForm = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -140,26 +159,6 @@ const RegisterForm = () => {
       setIsSubmitting(false);
     }
   };
-
-  // Input component for the form
-  const FormInput = ({ label, icon: Icon, error, helperText, ...props }) => (
-    <div>
-      <label className="block text-xs font-medium text-[#64748b] uppercase tracking-wider mb-2">
-        {label}
-      </label>
-      <div className="relative">
-        {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#64748b]" />}
-        <input
-          className={`w-full ${Icon ? 'pl-12' : 'pl-4'} pr-4 py-3 bg-[#141c28] border rounded-lg text-white placeholder-[#64748b] focus:outline-none focus:border-[#4ade80]/50 transition-colors ${
-            error ? 'border-[#ef4444]' : 'border-[#2a3a4d]'
-          }`}
-          {...props}
-        />
-      </div>
-      {error && <p className="mt-1 text-xs text-[#ef4444]">{error}</p>}
-      {helperText && !error && <p className="mt-1 text-xs text-[#64748b]">{helperText}</p>}
-    </div>
-  );
 
   return (
     <div className="w-full">
