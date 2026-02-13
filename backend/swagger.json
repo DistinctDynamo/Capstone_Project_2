@@ -1,0 +1,1483 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Soccer Connect API",
+    "description": "Backend API for Soccer Connect - GTA soccer community platform",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Soccer Connect Team"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://soccer-connect-api.vercel.app/api",
+      "description": "Production"
+    },
+    {
+      "url": "http://localhost:8046/api",
+      "description": "Local Development"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "message": { "type": "string" }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "page": { "type": "integer" },
+          "limit": { "type": "integer" },
+          "total": { "type": "integer" },
+          "pages": { "type": "integer" }
+        }
+      }
+    }
+  },
+  "tags": [
+    { "name": "Auth", "description": "Authentication & account management" },
+    { "name": "Users", "description": "User profiles and player stats" },
+    { "name": "Events", "description": "Soccer events and pickup games" },
+    { "name": "Teams", "description": "Team management" },
+    { "name": "Classifieds", "description": "Community classifieds and listings" },
+    { "name": "Fields", "description": "Soccer fields and venues" },
+    { "name": "Bookings", "description": "Field bookings" },
+    { "name": "Messages", "description": "Conversations and messaging" },
+    { "name": "Notifications", "description": "User notifications" },
+    { "name": "Admin", "description": "Admin dashboard and moderation" }
+  ],
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register a new user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["first_name", "last_name", "username", "email", "password", "date_of_birth"],
+                "properties": {
+                  "first_name": { "type": "string", "example": "John" },
+                  "last_name": { "type": "string", "example": "Doe" },
+                  "username": { "type": "string", "example": "johndoe" },
+                  "email": { "type": "string", "format": "email", "example": "john@example.com" },
+                  "password": { "type": "string", "minLength": 6, "example": "password123" },
+                  "date_of_birth": { "type": "string", "format": "date", "example": "2000-01-15" },
+                  "phone": { "type": "string" },
+                  "location": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "User registered successfully" },
+          "400": { "description": "Validation error" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Login user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login successful, returns user and token" },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Logout user",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Logged out successfully" }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Get current authenticated user",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Current user data" },
+          "401": { "description": "Not authenticated" }
+        }
+      }
+    },
+    "/auth/heartbeat": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Update user online status",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Status updated" }
+        }
+      }
+    },
+    "/auth/check-email": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Check if email is available",
+        "parameters": [
+          { "name": "email", "in": "query", "required": true, "schema": { "type": "string", "format": "email" } }
+        ],
+        "responses": {
+          "200": { "description": "Email availability status" }
+        }
+      }
+    },
+    "/auth/check-username": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Check if username is available",
+        "parameters": [
+          { "name": "username", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Username availability status" }
+        }
+      }
+    },
+    "/auth/change-password": {
+      "put": {
+        "tags": ["Auth"],
+        "summary": "Change password",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["currentPassword", "newPassword"],
+                "properties": {
+                  "currentPassword": { "type": "string" },
+                  "newPassword": { "type": "string", "minLength": 6 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Password changed" },
+          "401": { "description": "Current password incorrect" }
+        }
+      }
+    },
+    "/auth/send-verification": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Send email verification link",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Verification email sent" }
+        }
+      }
+    },
+    "/auth/verify-email/{token}": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Verify email with token",
+        "parameters": [
+          { "name": "token", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Email verified" },
+          "400": { "description": "Invalid or expired token" }
+        }
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Request password reset email",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Reset email sent" }
+        }
+      }
+    },
+    "/auth/reset-password/{token}": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Reset password with token",
+        "parameters": [
+          { "name": "token", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["password"],
+                "properties": {
+                  "password": { "type": "string", "minLength": 6 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Password reset successfully" }
+        }
+      }
+    },
+    "/users": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get all users with pagination and filters",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "position", "in": "query", "schema": { "type": "string", "enum": ["goalkeeper", "defender", "midfielder", "forward"] } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "available", "in": "query", "schema": { "type": "string", "enum": ["true", "false"] } }
+        ],
+        "responses": {
+          "200": { "description": "List of users with pagination" },
+          "401": { "description": "Not authorized" }
+        }
+      }
+    },
+    "/users/search": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Search users",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "q", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "position", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Search results" },
+          "400": { "description": "Search query required" }
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get user by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "MongoDB ObjectId" }
+        ],
+        "responses": {
+          "200": { "description": "User data" },
+          "404": { "description": "User not found" }
+        }
+      },
+      "put": {
+        "tags": ["Users"],
+        "summary": "Update user profile",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "first_name": { "type": "string" },
+                  "last_name": { "type": "string" },
+                  "bio": { "type": "string" },
+                  "location": { "type": "string" },
+                  "phone": { "type": "string" },
+                  "position": { "type": "string", "enum": ["goalkeeper", "defender", "midfielder", "forward"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Profile updated" },
+          "403": { "description": "Not authorized to update this profile" }
+        }
+      },
+      "delete": {
+        "tags": ["Users"],
+        "summary": "Deactivate user account",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Account deactivated" },
+          "403": { "description": "Not authorized" }
+        }
+      }
+    },
+    "/users/{id}/stats": {
+      "put": {
+        "tags": ["Users"],
+        "summary": "Update user stats",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "games_played": { "type": "integer" },
+                  "goals": { "type": "integer" },
+                  "assists": { "type": "integer" },
+                  "clean_sheets": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Stats updated" }
+        }
+      }
+    },
+    "/users/{id}/player-stats": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get user's FIFA-style player attributes and overall rating",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Player stats with overall rating" },
+          "404": { "description": "User not found" }
+        }
+      }
+    },
+    "/users/me/player-stats": {
+      "put": {
+        "tags": ["Users"],
+        "summary": "Update current user's FIFA-style player attributes",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pace": { "type": "integer", "minimum": 1, "maximum": 99 },
+                  "shooting": { "type": "integer", "minimum": 1, "maximum": 99 },
+                  "passing": { "type": "integer", "minimum": 1, "maximum": 99 },
+                  "dribbling": { "type": "integer", "minimum": 1, "maximum": 99 },
+                  "defending": { "type": "integer", "minimum": 1, "maximum": 99 },
+                  "physical": { "type": "integer", "minimum": 1, "maximum": 99 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Attributes updated" }
+        }
+      }
+    },
+    "/events": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "Get all events with filters and pagination",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "type", "in": "query", "schema": { "type": "string", "enum": ["pickup_game", "tournament", "training", "friendly", "league_match", "other"] } },
+          { "name": "skill_level", "in": "query", "schema": { "type": "string", "enum": ["recreational", "intermediate", "competitive"] } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "List of events with pagination" }
+        }
+      },
+      "post": {
+        "tags": ["Events"],
+        "summary": "Create a new event",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title", "event_type", "date", "time", "location"],
+                "properties": {
+                  "title": { "type": "string" },
+                  "description": { "type": "string" },
+                  "event_type": { "type": "string" },
+                  "date": { "type": "string", "format": "date" },
+                  "time": { "type": "string" },
+                  "location": { "type": "object" },
+                  "max_participants": { "type": "integer" },
+                  "skill_level": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Event created" },
+          "401": { "description": "Not authenticated" }
+        }
+      }
+    },
+    "/events/user/my-events": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "Get events created by current user",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "User's created events" }
+        }
+      }
+    },
+    "/events/user/attending": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "Get events user is attending or has pending requests",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Events user is attending" }
+        }
+      }
+    },
+    "/events/{id}": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "Get single event",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Event details" },
+          "404": { "description": "Event not found" }
+        }
+      },
+      "put": {
+        "tags": ["Events"],
+        "summary": "Update event",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Event updated" },
+          "403": { "description": "Not authorized" }
+        }
+      },
+      "delete": {
+        "tags": ["Events"],
+        "summary": "Delete event",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Event deleted" }
+        }
+      }
+    },
+    "/events/{id}/join": {
+      "post": {
+        "tags": ["Events"],
+        "summary": "Request to join an event",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Join request sent" }
+        }
+      }
+    },
+    "/events/{id}/requests/{requestId}": {
+      "put": {
+        "tags": ["Events"],
+        "summary": "Accept or reject a join request",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "requestId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string", "enum": ["accepted", "rejected"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Request processed" }
+        }
+      }
+    },
+    "/events/{id}/participants/{userId}": {
+      "delete": {
+        "tags": ["Events"],
+        "summary": "Remove a participant from event",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Participant removed" }
+        }
+      }
+    },
+    "/events/{id}/interest": {
+      "post": {
+        "tags": ["Events"],
+        "summary": "Express interest in event",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Interest registered" }
+        }
+      },
+      "delete": {
+        "tags": ["Events"],
+        "summary": "Remove interest from event",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Interest removed" }
+        }
+      }
+    },
+    "/teams": {
+      "get": {
+        "tags": ["Teams"],
+        "summary": "Get all teams with filters and pagination",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "skill_level", "in": "query", "schema": { "type": "string" } },
+          { "name": "recruiting", "in": "query", "schema": { "type": "string", "enum": ["true", "false"] } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "List of teams" }
+        }
+      },
+      "post": {
+        "tags": ["Teams"],
+        "summary": "Create a new team",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["team_name"],
+                "properties": {
+                  "team_name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "skill_level": { "type": "string", "enum": ["recreational", "intermediate", "competitive"] },
+                  "location": { "type": "object" },
+                  "max_members": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Team created" }
+        }
+      }
+    },
+    "/teams/user/my-team": {
+      "get": {
+        "tags": ["Teams"],
+        "summary": "Get current user's team",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "User's team data" },
+          "404": { "description": "User has no team" }
+        }
+      }
+    },
+    "/teams/user/invitations": {
+      "get": {
+        "tags": ["Teams"],
+        "summary": "Get pending invitations for current user",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of pending invitations" }
+        }
+      }
+    },
+    "/teams/{id}": {
+      "get": {
+        "tags": ["Teams"],
+        "summary": "Get single team",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Team details" },
+          "404": { "description": "Team not found" }
+        }
+      },
+      "put": {
+        "tags": ["Teams"],
+        "summary": "Update team",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Team updated" }
+        }
+      },
+      "delete": {
+        "tags": ["Teams"],
+        "summary": "Delete team",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Team deleted" }
+        }
+      }
+    },
+    "/teams/{id}/apply": {
+      "post": {
+        "tags": ["Teams"],
+        "summary": "Apply to join a team",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "message": { "type": "string" },
+                  "position": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Application submitted" }
+        }
+      }
+    },
+    "/teams/{id}/applications/{applicationId}": {
+      "put": {
+        "tags": ["Teams"],
+        "summary": "Accept or reject an application",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "applicationId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string", "enum": ["accepted", "rejected"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Application processed" }
+        }
+      }
+    },
+    "/teams/{id}/invite": {
+      "post": {
+        "tags": ["Teams"],
+        "summary": "Invite a user to join the team",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["userId"],
+                "properties": {
+                  "userId": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Invitation sent" }
+        }
+      }
+    },
+    "/teams/{id}/invitations/{invitationId}": {
+      "put": {
+        "tags": ["Teams"],
+        "summary": "Respond to team invitation",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "invitationId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string", "enum": ["accepted", "rejected"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Invitation response recorded" }
+        }
+      }
+    },
+    "/teams/{id}/members/{memberId}/role": {
+      "put": {
+        "tags": ["Teams"],
+        "summary": "Update member role",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "memberId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["role"],
+                "properties": {
+                  "role": { "type": "string", "enum": ["captain", "member"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Role updated" }
+        }
+      }
+    },
+    "/teams/{id}/members/{memberId}": {
+      "delete": {
+        "tags": ["Teams"],
+        "summary": "Remove member from team",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "memberId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Member removed" }
+        }
+      }
+    },
+    "/classifieds": {
+      "get": {
+        "tags": ["Classifieds"],
+        "summary": "Get all classifieds with filters and pagination",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "category", "in": "query", "schema": { "type": "string" } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "List of classifieds" }
+        }
+      },
+      "post": {
+        "tags": ["Classifieds"],
+        "summary": "Create a new classified",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "201": { "description": "Classified created" }
+        }
+      }
+    },
+    "/classifieds/user/my-classifieds": {
+      "get": {
+        "tags": ["Classifieds"],
+        "summary": "Get classifieds created by current user",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "User's classifieds" }
+        }
+      }
+    },
+    "/classifieds/{id}": {
+      "get": {
+        "tags": ["Classifieds"],
+        "summary": "Get single classified",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Classified details" }
+        }
+      },
+      "put": {
+        "tags": ["Classifieds"],
+        "summary": "Update classified",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Classified updated" }
+        }
+      },
+      "delete": {
+        "tags": ["Classifieds"],
+        "summary": "Delete classified",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Classified deleted" }
+        }
+      }
+    },
+    "/classifieds/{id}/respond": {
+      "post": {
+        "tags": ["Classifieds"],
+        "summary": "Respond to a classified",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Response sent" }
+        }
+      }
+    },
+    "/classifieds/{id}/mark-filled": {
+      "put": {
+        "tags": ["Classifieds"],
+        "summary": "Mark classified as filled",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Marked as filled" }
+        }
+      }
+    },
+    "/fields": {
+      "get": {
+        "tags": ["Fields"],
+        "summary": "Get all fields with filters and pagination",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "surface", "in": "query", "schema": { "type": "string" } },
+          { "name": "type", "in": "query", "schema": { "type": "string" } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "List of fields" }
+        }
+      },
+      "post": {
+        "tags": ["Fields"],
+        "summary": "Create a new field (admin only)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "201": { "description": "Field created" }
+        }
+      }
+    },
+    "/fields/nearby": {
+      "get": {
+        "tags": ["Fields"],
+        "summary": "Get fields near a location",
+        "parameters": [
+          { "name": "lat", "in": "query", "required": true, "schema": { "type": "number" } },
+          { "name": "lng", "in": "query", "required": true, "schema": { "type": "number" } },
+          { "name": "radius", "in": "query", "schema": { "type": "number", "default": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "Nearby fields" }
+        }
+      }
+    },
+    "/fields/{id}": {
+      "get": {
+        "tags": ["Fields"],
+        "summary": "Get single field",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Field details" }
+        }
+      },
+      "put": {
+        "tags": ["Fields"],
+        "summary": "Update field (admin only)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Field updated" }
+        }
+      },
+      "delete": {
+        "tags": ["Fields"],
+        "summary": "Delete field (admin only)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Field deleted" }
+        }
+      }
+    },
+    "/fields/{id}/availability": {
+      "get": {
+        "tags": ["Fields"],
+        "summary": "Get field availability for a specific date",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "date", "in": "query", "required": true, "schema": { "type": "string", "format": "date" } }
+        ],
+        "responses": {
+          "200": { "description": "Availability slots" }
+        }
+      }
+    },
+    "/bookings": {
+      "get": {
+        "tags": ["Bookings"],
+        "summary": "Get user's bookings",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of bookings" }
+        }
+      },
+      "post": {
+        "tags": ["Bookings"],
+        "summary": "Create a new booking",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "201": { "description": "Booking created" }
+        }
+      }
+    },
+    "/bookings/{id}": {
+      "get": {
+        "tags": ["Bookings"],
+        "summary": "Get single booking",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Booking details" }
+        }
+      },
+      "put": {
+        "tags": ["Bookings"],
+        "summary": "Update booking",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Booking updated" }
+        }
+      },
+      "delete": {
+        "tags": ["Bookings"],
+        "summary": "Delete a booking (only cancelled bookings)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Booking deleted" }
+        }
+      }
+    },
+    "/bookings/{id}/confirm": {
+      "put": {
+        "tags": ["Bookings"],
+        "summary": "Confirm a booking",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Booking confirmed" }
+        }
+      }
+    },
+    "/bookings/{id}/cancel": {
+      "put": {
+        "tags": ["Bookings"],
+        "summary": "Cancel a booking",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Booking cancelled" }
+        }
+      }
+    },
+    "/messages/conversations": {
+      "get": {
+        "tags": ["Messages"],
+        "summary": "Get user's conversations",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of conversations" }
+        }
+      },
+      "post": {
+        "tags": ["Messages"],
+        "summary": "Create or get existing conversation",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "participantId": { "type": "string" },
+                  "type": { "type": "string", "enum": ["direct", "group"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Conversation created or retrieved" }
+        }
+      }
+    },
+    "/messages/conversations/{id}": {
+      "get": {
+        "tags": ["Messages"],
+        "summary": "Get single conversation with messages",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Conversation with messages" }
+        }
+      }
+    },
+    "/messages/conversations/{id}/messages": {
+      "post": {
+        "tags": ["Messages"],
+        "summary": "Send a message",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["content"],
+                "properties": {
+                  "content": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Message sent" }
+        }
+      }
+    },
+    "/messages/conversations/{id}/poll": {
+      "get": {
+        "tags": ["Messages"],
+        "summary": "Poll for new messages",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "New messages if any" }
+        }
+      }
+    },
+    "/messages/conversations/{id}/leave": {
+      "put": {
+        "tags": ["Messages"],
+        "summary": "Leave a group conversation",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Left conversation" }
+        }
+      }
+    },
+    "/messages/{messageId}": {
+      "delete": {
+        "tags": ["Messages"],
+        "summary": "Delete a message (soft delete)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "messageId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Message deleted" }
+        }
+      }
+    },
+    "/notifications": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Get user's notifications",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of notifications" }
+        }
+      },
+      "delete": {
+        "tags": ["Notifications"],
+        "summary": "Clear all notifications",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "All notifications cleared" }
+        }
+      }
+    },
+    "/notifications/unread-count": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Get count of unread notifications",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Unread count" }
+        }
+      }
+    },
+    "/notifications/{id}/read": {
+      "put": {
+        "tags": ["Notifications"],
+        "summary": "Mark notification as read",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Marked as read" }
+        }
+      }
+    },
+    "/notifications/read-all": {
+      "put": {
+        "tags": ["Notifications"],
+        "summary": "Mark all notifications as read",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "All marked as read" }
+        }
+      }
+    },
+    "/notifications/{id}": {
+      "delete": {
+        "tags": ["Notifications"],
+        "summary": "Delete a notification",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Notification deleted" }
+        }
+      }
+    },
+    "/admin/stats": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get admin dashboard statistics",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Dashboard stats" }
+        }
+      }
+    },
+    "/admin/events/pending": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get events pending approval",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Pending events" }
+        }
+      }
+    },
+    "/admin/events/{id}/approve": {
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Approve an event",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Event approved" }
+        }
+      }
+    },
+    "/admin/events/{id}/reject": {
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Reject an event",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Event rejected" }
+        }
+      }
+    },
+    "/admin/teams/pending": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get teams pending approval",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Pending teams" }
+        }
+      }
+    },
+    "/admin/teams/{id}/approve": {
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Approve a team",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Team approved" }
+        }
+      }
+    },
+    "/admin/teams/{id}/reject": {
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Reject a team",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Team rejected" }
+        }
+      }
+    },
+    "/admin/classifieds/pending": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get classifieds pending approval",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Pending classifieds" }
+        }
+      }
+    },
+    "/admin/classifieds/{id}/approve": {
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Approve a classified",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Classified approved" }
+        }
+      }
+    },
+    "/admin/classifieds/{id}/reject": {
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Reject a classified",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Classified rejected" }
+        }
+      }
+    },
+    "/admin/teams": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get all teams with filters (admin)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "All teams" }
+        }
+      }
+    },
+    "/admin/teams/{id}": {
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Update team details (admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Team updated" }
+        }
+      },
+      "delete": {
+        "tags": ["Admin"],
+        "summary": "Delete a team (admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Team deleted" }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get all users with filters (admin)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "All users" }
+        }
+      }
+    },
+    "/admin/users/{id}/role": {
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Change user role",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["user_type"],
+                "properties": {
+                  "user_type": { "type": "string", "enum": ["player", "admin"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Role updated" }
+        }
+      }
+    },
+    "/admin/users/{id}/ban": {
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Ban/Unban a user",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "User ban status toggled" }
+        }
+      }
+    }
+  }
+}
