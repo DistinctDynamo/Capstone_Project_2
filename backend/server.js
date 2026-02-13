@@ -41,12 +41,11 @@ const connectDB = async () => {
   }
 };
 
-// Security middleware - relax CSP for Swagger docs page
-app.use('/api-docs', helmet({
-  contentSecurityPolicy: false,
-  crossOriginEmbedderPolicy: false,
-}));
-app.use(helmet());
+// Security middleware - skip helmet for Swagger docs
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api-docs')) return next();
+  helmet()(req, res, next);
+});
 
 // CORS configuration
 const corsOptions = {
