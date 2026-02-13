@@ -64,8 +64,9 @@ const PlayerProfilePage = () => {
   const [isMessaging, setIsMessaging] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
 
-  const playerId = paramId === 'me' ? currentUser?._id : paramId;
-  const isOwnProfile = currentUser?._id === playerId || paramId === 'me';
+  const currentUserId = currentUser?._id || currentUser?.id;
+  const playerId = paramId === 'me' ? currentUserId : paramId;
+  const isOwnProfile = currentUserId === playerId || paramId === 'me';
 
   useEffect(() => {
     const fetchMyTeam = async () => {
@@ -82,7 +83,7 @@ const PlayerProfilePage = () => {
 
   useEffect(() => {
     const fetchPlayerData = async () => {
-      if (paramId === 'me' && !currentUser?._id) {
+      if (paramId === 'me' && !currentUserId) {
         if (!isAuthenticated) {
           toast.error('Please log in to view your profile');
           setIsLoading(false);

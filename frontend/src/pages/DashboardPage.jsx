@@ -190,7 +190,7 @@ const DashboardPage = () => {
   }
 
   const quickActions = [
-    { label: 'My Player Card', code: 'PLR-CARD', icon: FiAward, to: `/players/${user?._id}`, color: '#f59e0b' },
+    { label: 'My Player Card', code: 'PLR-CARD', icon: FiAward, to: `/players/${user?._id || user?.id}`, color: '#f59e0b' },
     { label: 'Find Games', code: 'EVT-FIND', icon: FiCalendar, to: '/events', color: '#a855f7' },
     { label: 'Browse Teams', code: 'TMS-BROW', icon: FiUsers, to: '/teams', color: '#22c55e' },
     { label: 'Find Fields', code: 'FLD-FIND', icon: FiMapPin, to: '/fields', color: '#3b82f6' },
