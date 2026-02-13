@@ -104,6 +104,10 @@ const MyTeamPage = () => {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [isProcessingRequest, setIsProcessingRequest] = useState(false);
 
+  // Kick member state
+  const [kickTarget, setKickTarget] = useState(null);
+  const [isKicking, setIsKicking] = useState(false);
+
   // Player finder state
   const [availablePlayers, setAvailablePlayers] = useState([]);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
@@ -283,6 +287,26 @@ const MyTeamPage = () => {
     }
   };
 
+  const handleKickMember = async () => {
+    if (!kickTarget || isKicking) return;
+    setIsKicking(true);
+    try {
+      await teamsAPI.removeMember(team.id, kickTarget.id);
+      setTeam(prev => ({
+        ...prev,
+        members: prev.members - 1,
+        roster: prev.roster.filter(p => p.id !== kickTarget.id),
+      }));
+      toast.success(`${kickTarget.name} has been removed from the team`);
+      setKickTarget(null);
+    } catch (error) {
+      console.error('Error removing member:', error);
+      toast.error(error.response?.data?.message || 'Failed to remove member');
+    } finally {
+      setIsKicking(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#0a0e14] flex items-center justify-center">
@@ -452,7 +476,7 @@ const MyTeamPage = () => {
                   player={player}
                   isAdmin={team.isAdmin}
                   onMessage={(p) => toast.success(`Opening chat with ${p.name}...`)}
-                  onRemove={(p) => toast.success(`Removing ${p.name}...`)}
+                  onRemove={(p) => setKickTarget(p)}
                 />
               ))}
             </div>
@@ -588,6 +612,58 @@ const MyTeamPage = () => {
                   <FiTrash2 className="w-4 h-4" />
                   Disband Team
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Kick Confirmation Modal */}
+        {kickTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
+            <div className="bg-[#0d1219] border border-[#1c2430] rounded-lg w-full max-w-md overflow-hidden">
+              <div className="px-4 py-3 border-b border-[#ef4444]/30 bg-[#ef4444]/5">
+                <span className="text-xs uppercase tracking-wider text-[#ef4444]">Confirm Removal</span>
+              </div>
+              <div className="p-6">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 rounded-lg bg-[#141c28] border border-[#2a3a4d] overflow-hidden flex-shrink-0">
+                    {kickTarget.avatar ? (
+                      <img src={kickTarget.avatar} alt={kickTarget.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[#4ade80] font-bold text-lg">
+                        {kickTarget.name?.[0] || '?'}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-white font-medium">{kickTarget.name}</p>
+                    <p className="text-xs text-[#64748b] font-mono">{kickTarget.email}</p>
+                  </div>
+                </div>
+                <p className="text-[#94a3b8] text-sm mb-6">
+                  Are you sure you want to remove <span className="text-white font-medium">{kickTarget.name}</span> from the team? This action cannot be undone.
+                </p>
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setKickTarget(null)}
+                    disabled={isKicking}
+                    className="px-4 py-2.5 bg-[#141c28] border border-[#2a3a4d] text-[#94a3b8] rounded-lg text-sm font-medium hover:text-white transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleKickMember}
+                    disabled={isKicking}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-[#ef4444] text-white rounded-lg text-sm font-medium hover:bg-[#dc2626] transition-colors disabled:opacity-50"
+                  >
+                    {isKicking ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <FiTrash2 className="w-4 h-4" />
+                    )}
+                    Remove Member
+                  </button>
+                </div>
               </div>
             </div>
           </div>
