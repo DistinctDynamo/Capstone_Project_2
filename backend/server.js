@@ -5,7 +5,6 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
-const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
 
 // Import routes
@@ -42,8 +41,7 @@ const connectDB = async () => {
   }
 };
 
-// Security middleware - disable CSP for Swagger docs
-app.use('/api-docs', helmet({ contentSecurityPolicy: false }));
+// Security middleware
 app.use(helmet());
 
 // CORS configuration
@@ -105,11 +103,36 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Swagger API Docs
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
-  customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: 'Soccer Connect API Docs',
-}));
+// Swagger API Docs - serve spec as JSON
+app.get('/api-docs/swagger.json', (req, res) => {
+  res.json(swaggerDocument);
+});
+
+// Swagger UI via CDN (avoids Vercel serverless static file issues)
+app.get('/api-docs', (req, res) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Soccer Connect API Docs</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+  <style>body{margin:0;background:#fafafa} .swagger-ui .topbar{display:none}</style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script>
+    SwaggerUIBundle({
+      url: '/api-docs/swagger.json',
+      dom_id: '#swagger-ui',
+      presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
+      layout: 'BaseLayout'
+    });
+  </script>
+</body>
+</html>`);
+});
 
 // API Routes
 app.use('/api/auth', authRoutes);
